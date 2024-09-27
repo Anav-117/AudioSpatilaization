@@ -31,7 +31,7 @@ Shader::Shader(const std::string ShaderName, VkDevice device) {
 
     shaderStageInfos.push_back(fshaderInfo);
 
-    VkPipelineShaderStageCreateInfo tcshaderInfo{};
+    /*VkPipelineShaderStageCreateInfo tcshaderInfo{};
     tcshaderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     tcshaderInfo.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     tcshaderInfo.module = tessellationControlShader;
@@ -45,7 +45,7 @@ Shader::Shader(const std::string ShaderName, VkDevice device) {
     teshaderInfo.module = tessellationEvalShader;
     teshaderInfo.pName = "main";
 
-    shaderStageInfos.push_back(teshaderInfo);
+    shaderStageInfos.push_back(teshaderInfo);*/
 
 }
 

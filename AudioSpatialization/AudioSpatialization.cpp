@@ -11,6 +11,8 @@ namespace win {
 namespace camera {
 	glm::vec3 pos = glm::vec3(0.0f, 0.0f, -1.0f);
 	glm::vec3 fwd = glm::vec3(0.0f, 0.0f, 1.0f);
+	glm::vec3 right;
+	glm::vec3 up;
 	float angle = 0;
 	float Xangle = 0;
 }
@@ -48,21 +50,32 @@ void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int
 		camera::pos -= 0.1f * camera::fwd;
 	}
 	if (key == GLFW_KEY_LEFT) {
-		camera::angle += 0.1f;
-		camera::fwd = glm::vec3(sin(camera::angle), camera::fwd.y, cos(camera::angle));
+		camera::angle = 0.1f;
+		camera::fwd = glm::rotate(camera::fwd, camera::angle, camera::up);
+		//camera::fwd = glm::vec3(sin(camera::angle), camera::fwd.y, cos(camera::angle));
 	}
 	if (key == GLFW_KEY_RIGHT) {
-		camera::angle -= 0.1f;
-		camera::fwd = glm::vec3(sin(camera::angle), camera::fwd.y, cos(camera::angle));
+		camera::angle = -0.1f;
+		camera::fwd = glm::rotate(camera::fwd, camera::angle, camera::up);
+		//camera::fwd = glm::vec3(sin(camera::angle), camera::fwd.y, cos(camera::angle));
 	}
 	if (key == GLFW_KEY_UP) {
-		camera::Xangle -= 0.1f;
-		camera::fwd = glm::vec3(camera::fwd.x, sin(camera::Xangle), cos(camera::Xangle));
+		camera::Xangle = -0.1f;
+		if (glm::dot(camera::fwd, glm::vec3(0.0f, -1.0f, 0.0f)) > 0.9) {
+			return;
+		}
+		camera::fwd = glm::rotate(camera::fwd, camera::Xangle, camera::right);
+		//camera::fwd = glm::vec3(camera::fwd.x, sin(camera::Xangle), cos(camera::Xangle));
 	}
 	if (key == GLFW_KEY_DOWN) {
-		camera::Xangle += 0.1f;
-		camera::fwd = glm::vec3(camera::fwd.x, sin(camera::Xangle), cos(camera::Xangle));
+		if (glm::dot(camera::fwd, glm::vec3(0.0f, 1.0f, 0.0f)) > 0.9) {
+			return;
+		}
+		camera::Xangle = 0.1f;
+		camera::fwd = glm::rotate(camera::fwd, camera::Xangle, camera::right);
+		//camera::fwd = glm::vec3(camera::fwd.x, sin(camera::Xangle), cos(camera::Xangle));
 	}
+
 }
 
 void windowResizeCallback(GLFWwindow* window, int width, int height) {
@@ -85,9 +98,12 @@ void display() {
 
 void idle() {
 
-	transform.M = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f)) * glm::mat4(1.0f);
+	camera::right = glm::cross(camera::fwd, glm::vec3(0.0f, 1.0, 0.0f));
+	camera::up = glm::cross(camera::right, camera::fwd);
+
+	transform.M = glm::scale(glm::mat4(1.0f), glm::vec3(0.005f)) * glm::mat4(1.0f);
 	transform.V = glm::lookAt(camera::pos, camera::pos + camera::fwd, glm::vec3(0.0f, 1.0f, 0.0f));
-	transform.P = glm::perspective(glm::radians(45.0f), win::width / (float)win::height, 0.1f, 100.0f);
+	transform.P = glm::perspective(glm::radians(45.0f), win::width / (float)win::height, 0.1f, 10000.0f);
 
 	transform.cameraPos = camera::pos;
 

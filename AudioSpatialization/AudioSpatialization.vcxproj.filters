@@ -3,7 +3,7 @@
   <ItemGroup>
     <ClCompile Include="Shaders.cpp" />
     <ClCompile Include="VKConfig.cpp" />
-    <ClCompile Include="RTX.cpp" />
+    <ClCompile Include="AudioSpatialization.cpp" />
     <ClCompile Include="..\imgui-master\imgui.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
