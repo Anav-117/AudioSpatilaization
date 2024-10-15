@@ -80,6 +80,8 @@ void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int
 
 void windowResizeCallback(GLFWwindow* window, int width, int height) {
 
+	win::width = width;
+	win::height = height;
 	vk->framebufferResized = true;
 
 }
@@ -119,11 +121,15 @@ int main() {
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-	GLFWwindow* window = glfwCreateWindow(win::width, win::height, "RTX", 0, nullptr);
+	GLFWwindow* window = glfwCreateWindow(win::width, win::height, "GTX", 0, nullptr);
+
+
 
 	vk = new VulkanClass(window);
 	vk->createTransformBuffer(sizeof(transform));
 	vk->createTransformDescriptorSet();
+	//vk->createAmpBuffer();
+	vk->createAmpDescriptorSet();
 
 	glfwSetKeyCallback(window, keyboardCallback);
 	glfwSetWindowSizeCallback(window, windowResizeCallback);

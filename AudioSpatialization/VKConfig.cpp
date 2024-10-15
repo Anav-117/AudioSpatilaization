@@ -127,6 +127,7 @@ VulkanClass::VulkanClass(GLFWwindow* win) {
 
 	createRenderPass();
 	createDescriptorSetLayout();
+	createAmpDescriptorSetLayout();
 	createDescriptorPools();
 	createGraphicsPipeline();
 
@@ -138,6 +139,7 @@ VulkanClass::VulkanClass(GLFWwindow* win) {
 
 	createVertexBuffer();
 	//createIndexBuffer();
+	createAmpBuffer();
 
 	createSyncObjects();
 
@@ -147,13 +149,13 @@ VulkanClass::VulkanClass(GLFWwindow* win) {
 
 VulkanClass::~VulkanClass() {
 
-	for (size_t i = 0; i < swapChain.framebuffers.size(); i++) {
-		vkDestroyFramebuffer(logicalDevice, swapChain.framebuffers[i], nullptr);
-	}
-
 	vkDestroyImageView(logicalDevice, depthImageView, nullptr);
 	vkDestroyImage(logicalDevice, depthImage, nullptr);
 	vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
+
+	for (size_t i = 0; i < swapChain.framebuffers.size(); i++) {
+		vkDestroyFramebuffer(logicalDevice, swapChain.framebuffers[i], nullptr);
+	}
 
 	for (size_t i = 0; i < swapChain.imageViews.size(); i++) {
 		vkDestroyImageView(logicalDevice, swapChain.imageViews[i], nullptr);
@@ -167,6 +169,9 @@ VulkanClass::~VulkanClass() {
 	//vkDestroyDescriptorPool(logicalDevice, imguiDescriptorPool, nullptr);
 	//ImGui_ImplVulkan_Shutdown();
 
+	vkDestroyBuffer(logicalDevice, ampBuffer, nullptr);
+	vkFreeMemory(logicalDevice, ampBufferMemory, nullptr);
+
 	for (size_t i = 0; i < swapChain.MAX_FRAMES_IN_FLIGHT; i++) {
 		vkDestroyBuffer(logicalDevice, transformBuffer[i], nullptr);
 		vkFreeMemory(logicalDevice, transformBufferMemory[i], nullptr);
@@ -174,6 +179,7 @@ VulkanClass::~VulkanClass() {
 
 	vkDestroyDescriptorPool(logicalDevice, uniformDescriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(logicalDevice, transformDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(logicalDevice, AmpDescriptorSetLayout, nullptr);
 
 	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
@@ -256,7 +262,7 @@ bool VulkanClass::findQueueFamilies(VkPhysicalDevice device) {
 
 	uint32_t i = 0;
 	for (auto queueFamily : queueFamilies) {
-		if (queueFamily.queueFlags | VK_QUEUE_GRAPHICS_BIT > 0) {
+		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT & VK_QUEUE_COMPUTE_BIT > 0) {
 			QueueFamilyIndex.graphicsFamily = i;
 			return true;
 		}
@@ -339,6 +345,7 @@ VkPhysicalDevice VulkanClass::findPhysicalDevice() {
 
 		selectedDevice = device;
 		std::cout << properties.vendorID << " | " << properties.deviceName << " | " << properties.deviceType << " | " << properties.driverVersion << "\n";
+		std::cout << "MAX SSBO SIZE - " << properties.limits.maxStorageBufferRange << "\n";
 
 	}
 
@@ -401,6 +408,7 @@ void VulkanClass::createLogicalDevice() {
 
 	vkGetDeviceQueue(logicalDevice, QueueFamilyIndex.graphicsFamily, 0, &graphicsQueue);
 	vkGetDeviceQueue(logicalDevice, QueueFamilyIndex.presentFamily, 0, &presentQueue);
+	vkGetDeviceQueue(logicalDevice, QueueFamilyIndex.computeFamily, 0, &computeQueue);
 
 }
 
@@ -430,7 +438,7 @@ VkPresentModeKHR SwapChain::findSwapChainPresentMode(const std::vector<VkPresent
 
 VkExtent2D SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window) {
 
-	if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+	if (false) { //capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
 		return capabilities.currentExtent;
 	}
 	else {
@@ -610,17 +618,38 @@ void VulkanClass::createDescriptorSetLayout() {
 	}
 }
 
+void VulkanClass::createAmpDescriptorSetLayout() {
+
+	VkDescriptorSetLayoutBinding ampLayoutBinding{};
+	ampLayoutBinding.binding = 0;
+	ampLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	ampLayoutBinding.descriptorCount = 1;
+	ampLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	VkDescriptorSetLayoutCreateInfo ampLayoutInfo{};
+	ampLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	ampLayoutInfo.bindingCount = 1;
+	ampLayoutInfo.pBindings = &ampLayoutBinding;
+
+	if (vkCreateDescriptorSetLayout(logicalDevice, &ampLayoutInfo, nullptr, &AmpDescriptorSetLayout) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create Amplitude Descriptor Set layout\n");
+	}
+
+}
+
 void VulkanClass::createDescriptorPools() {
 
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT);
+	std::vector<VkDescriptorPoolSize> poolSize(2);
+	poolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize[0].descriptorCount = static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT);
+	poolSize[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	poolSize[1].descriptorCount = 1;
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT);
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSize.size());
+	poolInfo.pPoolSizes = poolSize.data();
+	poolInfo.maxSets = static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT) + 1;
 
 	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &uniformDescriptorPool) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to Create Uniform Descriptor Pool\n");
@@ -674,6 +703,36 @@ void VulkanClass::createTransformBuffer(VkDeviceSize bufferSize) {
 
 		vkMapMemory(logicalDevice, transformBufferMemory[i], 0, bufferSize, 0, &transformBufferMap[i]);
 	}
+
+}
+
+void VulkanClass::createAmpDescriptorSet() {
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = uniformDescriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &AmpDescriptorSetLayout;
+
+	if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, &ampDescriptorSet) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to Create Transform Descriptor Set\n");
+	}
+
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = ampBuffer;
+	bufferInfo.offset = 0;
+	bufferInfo.range = sizeof(AmpVolume)*ampVolumeSize;
+
+	VkWriteDescriptorSet ampWrite{};
+	ampWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	ampWrite.dstSet = ampDescriptorSet;
+	ampWrite.dstBinding = 0;
+	ampWrite.dstArrayElement = 0;
+	ampWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	ampWrite.descriptorCount = 1;
+	ampWrite.pBufferInfo = &bufferInfo;
+
+	vkUpdateDescriptorSets(logicalDevice, 1, &ampWrite, 0, nullptr);
 
 }
 
@@ -769,6 +828,16 @@ void VulkanClass::createGraphicsPipeline() {
 	scissorRect.extent = swapChain.extent;
 	scissorRect.offset = { 0,0 };
 
+	std::vector<VkDynamicState> dynamicStates = {
+	VK_DYNAMIC_STATE_VIEWPORT,
+	VK_DYNAMIC_STATE_SCISSOR
+	};
+
+	VkPipelineDynamicStateCreateInfo dynamicState{};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+	dynamicState.pDynamicStates = dynamicStates.data();
+
 	VkPipelineViewportStateCreateInfo viewportStateInfo{};
 	viewportStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportStateInfo.scissorCount = 1;
@@ -800,7 +869,13 @@ void VulkanClass::createGraphicsPipeline() {
 
 	VkPipelineColorBlendAttachmentState colorBlend{};
 	colorBlend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlend.blendEnable = VK_FALSE;
+	colorBlend.blendEnable = VK_TRUE;
+	colorBlend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorBlend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	colorBlend.colorBlendOp = VK_BLEND_OP_ADD;
+	colorBlend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlend.alphaBlendOp = VK_BLEND_OP_ADD;
 	VkPipelineColorBlendStateCreateInfo colorBlendGlobal{};
 	colorBlendGlobal.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlendGlobal.logicOpEnable = VK_FALSE;
@@ -811,10 +886,11 @@ void VulkanClass::createGraphicsPipeline() {
 	tessellationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 	tessellationInfo.patchControlPoints = 3;
 
+	std::vector<VkDescriptorSetLayout> layouts = { transformDescriptorSetLayout, AmpDescriptorSetLayout };
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 1;
-	pipelineLayoutInfo.pSetLayouts = &transformDescriptorSetLayout;
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+	pipelineLayoutInfo.pSetLayouts = layouts.data();
 
 	if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 		throw std::runtime_error("Failed To Create Pipeline Layout\n");
@@ -828,6 +904,7 @@ void VulkanClass::createGraphicsPipeline() {
 	graphicsPipelineInfo.stageCount = basicShader.shaderStageInfos.size();
 	graphicsPipelineInfo.pStages = basicShader.shaderStageInfos.data();
 	//graphicsPipelineInfo.pTessellationState = VK_NULL_HANDLE; &tessellationInfo;
+	graphicsPipelineInfo.pDynamicState = &dynamicState;
 	graphicsPipelineInfo.pColorBlendState = &colorBlendGlobal;
 	graphicsPipelineInfo.pVertexInputState = &vertexInputInfo;
 	graphicsPipelineInfo.pInputAssemblyState = &inputAssemblyInfo;
@@ -878,7 +955,11 @@ void VulkanClass::recreateSwapChain() {
 		glfwWaitEvents();
 	}
 
-	vkDeviceWaitIdle(logicalDevice);
+    vkDeviceWaitIdle(logicalDevice);
+
+	vkDestroyImageView(logicalDevice, depthImageView, nullptr);
+	vkDestroyImage(logicalDevice, depthImage, nullptr);
+	vkFreeMemory(logicalDevice, depthImageMemory, nullptr);
 
 	for (size_t i = 0; i < swapChain.framebuffers.size(); i++) {
 		vkDestroyFramebuffer(logicalDevice, swapChain.framebuffers[i], nullptr);
@@ -932,6 +1013,15 @@ void VulkanClass::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t in
 	std::vector<VkClearValue> clearColor = { {{0.2f, 0.3f, 0.3f, 1.0f}}, {1.0f, 0} };
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearColor.size());
 	renderPassBeginInfo.pClearValues = clearColor.data();
+
+	VkBufferMemoryBarrier barrier = {};
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	barrier.buffer = ampBuffer;
+	barrier.size = sizeof(AmpVolume)*ampVolumeSize;
+
+	vkCmdPipelineBarrier(commandBuffer,	VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 	
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -944,12 +1034,12 @@ void VulkanClass::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t in
 	viewport.height = static_cast<float>(swapChain.extent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	//vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 	VkRect2D scissorRect{};
 	scissorRect.extent = swapChain.extent;
 	scissorRect.offset = { 0,0 };
-	//vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
 
 	//ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
@@ -957,9 +1047,10 @@ void VulkanClass::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t in
 	VkDeviceSize offsets[] = { 0 };
 
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-	
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &transformDescriptorSet[currentFrame], 0, 0);
+	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32
+
+	std::vector<VkDescriptorSet> descriptorSets = { transformDescriptorSet[currentFrame] , ampDescriptorSet };
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, 0);
 
 	vkCmdDraw(commandBuffer, vertices.size(), 1, 0, 0);
 
@@ -1065,10 +1156,9 @@ void VulkanClass::draw(uint32_t& imageIndex) {
 
 	result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || framebufferResized) {
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||framebufferResized) {
 		framebufferResized = false;
 		recreateSwapChain();
-		//std::cout<<"recreated swapchain\n";
 	}
 
 }
@@ -1172,10 +1262,15 @@ void VulkanClass::loadModel() {
 	std::vector<tinyobj::material_t> materials;
 	std::string warn, err;
 
+	float maxX = 0.0, maxY = 0.0, maxZ = 0.0;
+	float minX = 0.0, minY = 0.0, minZ = 0.0;
+
 	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
 		std::cout << warn + err << "\n";
 		throw std::runtime_error(warn + err);
 	}
+
+	float max = 0;
 
 	for (const auto& shape : shapes) {
 		for (const auto& index : shape.mesh.indices) {
@@ -1187,6 +1282,19 @@ void VulkanClass::loadModel() {
 				attrib.vertices[3 * index.vertex_index + 2]
 			};
 
+			if (vertex.pos.x > maxX)
+				maxX = vertex.pos.x;
+			if (vertex.pos.y > maxY)
+				maxY = vertex.pos.y;
+			if (vertex.pos.z > maxZ)
+				maxZ = vertex.pos.z;
+			if (vertex.pos.x < minX)
+				minX = vertex.pos.x;
+			if (vertex.pos.y < minY)
+				minY = vertex.pos.y;
+			if (vertex.pos.z < minZ)
+				minZ = vertex.pos.z;
+
 			vertex.normal = {
 				attrib.normals[3 * index.normal_index + 0],
 				attrib.normals[3 * index.normal_index + 1],
@@ -1195,7 +1303,27 @@ void VulkanClass::loadModel() {
 
 			vertices.push_back(vertex);
 			indices.push_back(indices.size());
+
 		}
+	}
+
+	extent[0] = maxX;
+	extent[1] = minX;
+	extent[2] = maxY;
+	extent[3] = minY;
+	extent[4] = maxZ;
+	extent[5] = minZ;
+
+	ampVolumeSize = (static_cast<size_t>((maxX - minX)/10.0) * ((maxY - minY)/10.0) * ((maxZ - minZ)/10.0));
+
+	ampVolume = (AmpVolume*) malloc(ampVolumeSize * sizeof(AmpVolume));
+
+	std::cout << "AMPLITUDE VOLUME SIZE - " << (maxX - minX)/10.0 << " X " << (maxY - minY)/10.0 << " X " << (maxZ - minZ)/10.0 << " = " << ampVolumeSize << "\n";
+
+	srand(glfwGetTime());
+
+	for (unsigned int i = 0; i < ampVolumeSize; i++) {
+		ampVolume[i].amp = ((float)rand() / RAND_MAX > 0.5) ? 1.0f : 0.0f;
 	}
 
 }
@@ -1322,6 +1450,67 @@ void VulkanClass::createIndexBuffer() {
 
 
 	copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+
+}
+
+void VulkanClass::createAmpBuffer() {
+
+	VkDeviceSize bufferSize = sizeof(AmpVolume)*ampVolumeSize;
+	
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	bufferInfo.size = bufferSize;
+
+	vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &stagingBuffer);
+
+	VkMemoryRequirements memReq;
+	vkGetBufferMemoryRequirements(logicalDevice, stagingBuffer, &memReq);
+
+	VkMemoryAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memReq.size;
+	allocInfo.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &stagingBufferMemory);
+
+	vkBindBufferMemory(logicalDevice, stagingBuffer, stagingBufferMemory, 0);
+
+	void* data;
+	vkMapMemory(logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, ampVolume, bufferSize);
+
+	//for (unsigned int i = 0; i < ampVolumeSize; i++) {
+	//	//std::cout << static_cast<float>(*((float*)data + sizeof(float)*i)) << "\n";
+	//}
+
+	vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	bufferInfo.size = bufferSize;
+
+	vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &ampBuffer);
+
+	vkGetBufferMemoryRequirements(logicalDevice, ampBuffer, &memReq);
+
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memReq.size;
+	allocInfo.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &ampBufferMemory);
+
+	vkBindBufferMemory(logicalDevice, ampBuffer, ampBufferMemory, 0);
+
+	copyBuffer(stagingBuffer, ampBuffer, bufferSize);
 
 	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);

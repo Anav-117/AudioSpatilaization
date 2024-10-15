@@ -35,6 +35,7 @@ struct QueueFamily {
 
 	uint32_t graphicsFamily;
 	uint32_t presentFamily;
+	uint32_t computeFamily;
 
 };
 
@@ -43,6 +44,12 @@ struct SwapChainSupport {
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
+
+};
+
+struct AmpVolume {
+
+	float amp;
 
 };
 
@@ -82,6 +89,7 @@ private:
 	VkDevice logicalDevice;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
+	VkQueue computeQueue;
 
 	VkSurfaceKHR surface;
 	GLFWwindow* window;
@@ -89,9 +97,11 @@ private:
 	SwapChain swapChain;
 
 	VkDescriptorSetLayout transformDescriptorSetLayout;
+	VkDescriptorSetLayout AmpDescriptorSetLayout;
 	VkDescriptorPool uniformDescriptorPool;
 	std::vector<VkDescriptorSet> transformDescriptorSet;
 	VkDescriptorPool imguiDescriptorPool;
+	VkDescriptorSet ampDescriptorSet;
 
 	std::vector<VkBuffer> transformBuffer;
 	std::vector<VkDeviceMemory> transformBufferMemory;
@@ -107,6 +117,10 @@ private:
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
 	void* indexBufferMap;
+
+	VkBuffer ampBuffer;
+	VkDeviceMemory ampBufferMemory;
+	void* ampBufferMap;
 
 	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
@@ -131,6 +145,9 @@ public:
 	Transform transform;
 
 	const std::string MODEL_PATH = "models/sponza.obj";
+	float extent[6];
+	AmpVolume* ampVolume = nullptr;
+	size_t ampVolumeSize;
 
 	VulkanClass();
 	VulkanClass(GLFWwindow* win);
@@ -164,8 +181,12 @@ public:
 	void createRenderPass();
 	void createDescriptorSetLayout();
 	void createDescriptorPools();
+	void createAmpDescriptorSetLayout();
+
 	void createTransformBuffer(VkDeviceSize bufferSize);
 	void createTransformDescriptorSet();
+
+	void createAmpDescriptorSet();
 
 	void updateTransform();
 
@@ -183,6 +204,7 @@ public:
 	void loadModel();
 	void createVertexBuffer();
 	void createIndexBuffer();
+	void createAmpBuffer();
 
 	void initImGui();
 	void drawGui();
