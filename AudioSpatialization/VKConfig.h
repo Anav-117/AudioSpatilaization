@@ -24,6 +24,7 @@ struct Transform {
 	glm::mat4 P;
 
 	glm::vec3 cameraPos;
+	glm::vec3 cameraFront;
 };
 
 struct Vertex {

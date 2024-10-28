@@ -4,6 +4,14 @@ layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 pos;
 layout(location = 2) in vec3 normal;
 
+layout(binding=0) uniform Transform {
+    mat4 M;
+    mat4 V;
+    mat4 P;
+    vec3 cameraPos;
+    vec3 cameraFront;
+} transform;
+
 struct AmpVolume {
     
     float amp;
@@ -24,6 +32,10 @@ float minZ = 1182.81;
 
 layout(location = 0) out vec4 outColor;
 
+vec4 finalColor = vec4(0.0);
+
+vec3 modelColor = vec3(0.5);
+
 vec3 lightPos = vec3(0.0, 5.0, 0.0);
 
 void main() {
@@ -35,15 +47,49 @@ void main() {
 
     float alpha = abs(dot(centerPos, normal) - 1.0);
 
-    vec3 modifiedPos = (pos + vec3(minX, minY, minZ))/10.0;
-
     int yStride = xExtent;
     int zStride = (yExtent) * (xExtent);
 
-    int index = int(modifiedPos.x + modifiedPos.y*yStride + modifiedPos.z*zStride);
-
-    vec3 amp = vec3(ampIn[index].amp);
-
-    outColor = vec4(diffuse * amp, alpha);
+    //outColor = vec4(diffuse * amp, alpha);
     //outColor = vec4(vec3(ampIn[index].amp), 1.0);
+
+    vec3 localCamera = (inverse(transform.M) * vec4(transform.cameraPos, 1.0)).xyz;
+
+    float dist = length(pos - localCamera);
+
+    float step = dist/10.0;
+
+    float accum = 0.0;
+    float volumeAlpha = 0.0;
+
+    float i;
+
+    for (i = 0; i < dist; i += step) {
+        vec3 volumeSample = localCamera + i * normalize((transform.M * vec4(pos, 1.0)).xyz - transform.cameraPos);
+        
+        vec3 modifiedSample = (volumeSample + vec3(minX, minY, minZ))/10.0;
+
+        int index = int(modifiedSample.x + modifiedSample.y*yStride + modifiedSample.z*zStride);
+
+        accum += ampIn[index].amp;
+
+        if (accum >= 1.0) {
+            accum = 1.0;
+            break;
+        }
+
+    }
+
+    //finalColor += vec4(1.0, 0.0, 0.0, accum);
+
+    //if (i >= dist) {
+    
+    //}
+
+    finalColor = mix(vec4(diffuse*modelColor, 1.0), vec4(1.0, 0.0, 0.0, 1.0), accum);
+
+    outColor = finalColor;
+
+    //outColor = vec4(vec3(accum), 1.0);
+
 }

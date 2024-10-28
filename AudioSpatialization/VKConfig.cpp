@@ -606,7 +606,7 @@ void VulkanClass::createDescriptorSetLayout() {
 	transformLayoutBinding.binding = 0;
 	transformLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	transformLayoutBinding.descriptorCount = 1;
-	transformLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+	transformLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	VkDescriptorSetLayoutCreateInfo transformLayoutInfo{};
 	transformLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1323,7 +1323,7 @@ void VulkanClass::loadModel() {
 	srand(glfwGetTime());
 
 	for (unsigned int i = 0; i < ampVolumeSize; i++) {
-		ampVolume[i].amp = ((float)rand() / RAND_MAX > 0.5) ? 1.0f : 0.0f;
+		ampVolume[i].amp = (i > (0.25 * ampVolumeSize) && i < (0.5 * ampVolumeSize)) ? 0.1 : 0.0; //((float)rand() / RAND_MAX > 0.5) ? 1.0f : 0.0f;
 	}
 
 }

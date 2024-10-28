@@ -108,6 +108,7 @@ void idle() {
 	transform.P = glm::perspective(glm::radians(45.0f), win::width / (float)win::height, 0.1f, 10000.0f);
 
 	transform.cameraPos = camera::pos;
+	transform.cameraFront = camera::fwd;
 
 	vk->transform = transform;
 

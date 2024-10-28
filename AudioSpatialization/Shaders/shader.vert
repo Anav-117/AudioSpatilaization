@@ -21,7 +21,7 @@ layout(binding=0) uniform Transform {
 } transform;
 
 void main() {
-    gl_Position = transform.P * transform.V * transform.M* vec4(pos_attrib, 1.0);
+    gl_Position = transform.P * transform.V * transform.M * vec4(pos_attrib, 1.0);
     
     pos = pos_attrib; //(transform.M * vec4(pos_attrib, 1.0)).xyz;
     normal = normalize((transform.M * vec4(normal_attrib, 1.0)).xyz);
