@@ -73,8 +73,8 @@ void main() {
 
         accum += ampIn[index].amp;
 
-        if (accum >= 1.0) {
-            accum = 1.0;
+        if (accum >= 0.8) {
+            accum = 0.8;
             break;
         }
 

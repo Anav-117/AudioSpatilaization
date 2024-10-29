@@ -1322,8 +1322,24 @@ void VulkanClass::loadModel() {
 
 	srand(glfwGetTime());
 
-	for (unsigned int i = 0; i < ampVolumeSize; i++) {
-		ampVolume[i].amp = (i > (0.25 * ampVolumeSize) && i < (0.5 * ampVolumeSize)) ? 0.1 : 0.0; //((float)rand() / RAND_MAX > 0.5) ? 1.0f : 0.0f;
+	float densities[100];
+
+	for (unsigned int i = 0; i < 100; i++) {
+		densities[i] = ((float)rand() / RAND_MAX > 0.5) ? 0.1 : 0.0;
+	}
+
+	for (unsigned int i = 0; i < int(maxX - minX)/10.0; i++) {
+		for (unsigned int j = 0; j < int(maxY - minY)/10.0; j++) {
+			for (unsigned int k = 0; k < int(maxZ - minZ)/10.0; k ++) {
+				int yStride = int(maxX-minX)/10;
+				int zStride = (int(maxY-minY)/10) * (int(maxX-minX)/10);
+				int index = i + j * yStride + k * zStride;
+				int factor = ampVolumeSize / 100;
+				if (index >= 0 && index < ampVolumeSize) {
+					ampVolume[index].amp = densities[(int)(index/factor)];
+				}
+			}
+		}
 	}
 
 }

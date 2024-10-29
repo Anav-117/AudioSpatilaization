@@ -5,13 +5,9 @@ Shader::Shader(const std::string ShaderName, VkDevice device) {
 
     vertexShaderSource = readFile("./Shaders/" + ShaderName + "_vert.spv");
     fragmentShaderSource = readFile("./Shaders/" + ShaderName + "_frag.spv");
-    tessellationControlShaderSource = readFile("./Shaders/" + ShaderName + "_tesc.spv");
-    tessellationEvalShaderSource = readFile("./Shaders/" + ShaderName + "_tese.spv");
 
     vertexShader = createShaderModule(vertexShaderSource, device, ShaderName);
     fragmentShader = createShaderModule(fragmentShaderSource, device, ShaderName);
-    tessellationControlShader = createShaderModule(tessellationControlShaderSource, device, ShaderName);
-    tessellationEvalShader = createShaderModule(tessellationEvalShaderSource, device, ShaderName);
 
     this->device = device;
 
@@ -53,8 +49,6 @@ Shader::~Shader() {
 
     vkDestroyShaderModule(device, vertexShader, nullptr);
     vkDestroyShaderModule(device, fragmentShader, nullptr);
-    vkDestroyShaderModule(device, tessellationControlShader, nullptr);
-    vkDestroyShaderModule(device, tessellationEvalShader, nullptr);
     
 }
 

@@ -78,7 +78,7 @@ class VulkanClass {
 
 private:
 
-	bool enableValidationLayers = true;
+	bool enableValidationLayers = false; // true;
 	std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 	std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	QueueFamily QueueFamilyIndex;
