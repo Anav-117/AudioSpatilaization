@@ -90,6 +90,10 @@ void display() {
 
 	vkWaitForFences(vk->getLogicalDevice(), 1, &vk->inFlightFence[hostSwapChain::currentFrame], VK_TRUE, UINT32_MAX);
 
+	vk->dispatch(hostSwapChain::currentFrame);
+
+	vkWaitForFences(vk->getLogicalDevice(), 1, &vk->computeInFlightFence, VK_TRUE, UINT64_MAX);
+
 	vk->draw(hostSwapChain::currentFrame);
 
 	hostSwapChain::currentFrame = (hostSwapChain::currentFrame + 1) % vk->getMaxFramesInFlight();

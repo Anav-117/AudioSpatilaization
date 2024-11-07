@@ -58,14 +58,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shaders\shader.tesc">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\shader.tese">
-      <Filter>Shaders</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="Shaders">
       <UniqueIdentifier>{d62f85a0-b3a9-48f9-bf4c-ca9f93a34acf}</UniqueIdentifier>
     </Filter>
@@ -77,7 +69,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Shaders\shader.frag" />
-    <Text Include="Shaders\shader.vert" />
+    <Text Include="Shaders\shader.frag">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Shaders\shader.vert">
+      <Filter>Shaders</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\shader.comp">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

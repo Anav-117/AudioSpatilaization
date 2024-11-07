@@ -180,11 +180,12 @@
     <Text Include="Shaders\shader.frag">
       <FileType>Document</FileType>
     </Text>
-    <None Include="Shaders\shader.tesc" />
-    <None Include="Shaders\shader.tese" />
     <Text Include="Shaders\shader.vert">
       <FileType>Document</FileType>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\shader.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

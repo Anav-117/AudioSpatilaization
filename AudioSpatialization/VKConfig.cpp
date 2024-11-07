@@ -129,6 +129,10 @@ VulkanClass::VulkanClass(GLFWwindow* win) {
 	createDescriptorSetLayout();
 	createAmpDescriptorSetLayout();
 	createDescriptorPools();
+
+	basicShader = new Shader("shader", logicalDevice);
+
+	//createComputePipeline();
 	createGraphicsPipeline();
 
 	createDepthResources();
@@ -185,12 +189,17 @@ VulkanClass::~VulkanClass() {
 	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
 	vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
 
+	delete basicShader;
+
 	for (size_t i=0; i<swapChain.MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(logicalDevice, imageAvailableSemaphore[i], nullptr);
 		vkDestroySemaphore(logicalDevice, renderFinishedSempahore[i], nullptr);
 		vkDestroyFence(logicalDevice, inFlightFence[i], nullptr);
 	}
+
+	vkDestroySemaphore(logicalDevice, computeFinishedSemaphore, nullptr);
+	vkDestroyFence(logicalDevice, computeInFlightFence, nullptr);
 
 	vkDestroyFence(logicalDevice, imGuiFence, nullptr);
 
@@ -624,7 +633,7 @@ void VulkanClass::createAmpDescriptorSetLayout() {
 	ampLayoutBinding.binding = 0;
 	ampLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	ampLayoutBinding.descriptorCount = 1;
-	ampLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	ampLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 
 	VkDescriptorSetLayoutCreateInfo ampLayoutInfo{};
 	ampLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -780,14 +789,37 @@ void VulkanClass::updateTransform() {
 
 }
 
+void VulkanClass::createComputePipeline() {
+
+	VkPipelineLayoutCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineInfo.setLayoutCount = 1;
+	pipelineInfo.pSetLayouts = &AmpDescriptorSetLayout;
+
+	if (vkCreatePipelineLayout(logicalDevice, &pipelineInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to Create Compute Pipeline Layout\n");
+	}
+
+	VkComputePipelineCreateInfo computePipelineInfo{};
+	computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	computePipelineInfo.layout = computePipelineLayout;
+	computePipelineInfo.stage = basicShader->computeShaderStageInfo;
+
+	VkResult computeCreate = vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &computePipeline);
+
+	if (computeCreate != VK_SUCCESS) {
+		std::cout << "Failed to Create Compute Pipeline | ERROR - " << computeCreate << "\n";
+		throw std::runtime_error("Failed to Create Compute Pipeline\n");
+	}
+
+}
+
 
 void VulkanClass::createGraphicsPipeline() {
 
 	if (graphicsPipeline != nullptr) {
 		vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 	}
-
-	Shader basicShader("shader", logicalDevice);
 
 	VkVertexInputBindingDescription vertexBindingInfo{};
 	vertexBindingInfo.binding = 0;
@@ -901,8 +933,8 @@ void VulkanClass::createGraphicsPipeline() {
 
 	VkGraphicsPipelineCreateInfo graphicsPipelineInfo{};
 	graphicsPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	graphicsPipelineInfo.stageCount = basicShader.shaderStageInfos.size();
-	graphicsPipelineInfo.pStages = basicShader.shaderStageInfos.data();
+	graphicsPipelineInfo.stageCount = basicShader->graphicsShaderStageInfos.size();
+	graphicsPipelineInfo.pStages = basicShader->graphicsShaderStageInfos.data();
 	//graphicsPipelineInfo.pTessellationState = VK_NULL_HANDLE; &tessellationInfo;
 	graphicsPipelineInfo.pDynamicState = &dynamicState;
 	graphicsPipelineInfo.pColorBlendState = &colorBlendGlobal;
@@ -916,7 +948,10 @@ void VulkanClass::createGraphicsPipeline() {
 	graphicsPipelineInfo.renderPass = renderPass;
 	graphicsPipelineInfo.subpass = 0;
 
-	if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+	VkResult createGraphics = vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &graphicsPipeline);
+
+	if (createGraphics != VK_SUCCESS) {
+		std::cout << "Faile to create Graphics Pipeline | ERROR - " << createGraphics << "\n";
 		throw std::runtime_error("Failed To Create Graphics Pipeline\n");
 	}
 
@@ -990,6 +1025,26 @@ void VulkanClass::createCommandPool() {
 
 	if (vkCreateCommandPool(logicalDevice, &commandPoolInfo, nullptr, &commandPool) != VK_SUCCESS) {
 		throw std::runtime_error("Failed To Create Command Pool\n");
+	}
+
+}
+
+void VulkanClass::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to Begin Recording Compute Command Buffer\n");
+	}
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &ampDescriptorSet, 0, 0);
+
+	vkCmdDispatch(commandBuffer, 1, 1, 1);
+
+	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to Record Compute Command Buffer\n");
 	}
 
 }
@@ -1104,7 +1159,37 @@ void VulkanClass::createSyncObjects() {
 		}
 	}
 
+	if (vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &computeFinishedSemaphore) != VK_SUCCESS ||
+		vkCreateFence(logicalDevice, &fenceInfo, nullptr, &computeInFlightFence) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to Create Compute Sync Objects\n");
+	}
+
 	vkCreateFence(logicalDevice, &fenceInfo, nullptr, &imGuiFence);
+
+}
+
+void VulkanClass::dispatch(uint32_t imageIndex) {
+
+	vkResetFences(logicalDevice, 1, &computeInFlightFence);
+
+	vkResetCommandBuffer(commandBuffer[imageIndex], 0);
+	recordComputeCommandBuffer(commandBuffer[imageIndex], imageIndex);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore signalSemaphores[] = { computeFinishedSemaphore };
+	submitInfo.waitSemaphoreCount = 0;
+	submitInfo.pWaitSemaphores = nullptr;
+	submitInfo.pWaitDstStageMask = nullptr;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer[imageIndex];
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+
+	if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, computeInFlightFence) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to Submit Compute Command\n");
+	}
 
 }
 
@@ -1129,7 +1214,7 @@ void VulkanClass::draw(uint32_t& imageIndex) {
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	
-	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore[imageIndex]};
+	VkSemaphore waitSemaphores[] = { computeFinishedSemaphore, imageAvailableSemaphore[imageIndex]};
 	VkSemaphore signalSemaphores[] = { renderFinishedSempahore[imageIndex]};
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	submitInfo.waitSemaphoreCount = 1;
@@ -1324,9 +1409,9 @@ void VulkanClass::loadModel() {
 
 	float densities[100];
 
-	for (unsigned int i = 0; i < 100; i++) {
-		densities[i] = ((float)rand() / RAND_MAX > 0.5) ? 0.1 : 0.0;
-	}
+	//for (unsigned int i = 0; i < 100; i++) {
+	//	densities[i] = ((float)rand() / RAND_MAX > 0.5) ? 0.1 : 0.0;
+	//}
 
 	for (unsigned int i = 0; i < int(maxX - minX)/10.0; i++) {
 		for (unsigned int j = 0; j < int(maxY - minY)/10.0; j++) {
@@ -1336,7 +1421,7 @@ void VulkanClass::loadModel() {
 				int index = i + j * yStride + k * zStride;
 				int factor = ampVolumeSize / 100;
 				if (index >= 0 && index < ampVolumeSize) {
-					ampVolume[index].amp = densities[(int)(index/factor)];
+					ampVolume[index].amp = 0.0;// densities[(int)(index / factor)];
 				}
 			}
 		}

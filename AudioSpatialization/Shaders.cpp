@@ -5,9 +5,11 @@ Shader::Shader(const std::string ShaderName, VkDevice device) {
 
     vertexShaderSource = readFile("./Shaders/" + ShaderName + "_vert.spv");
     fragmentShaderSource = readFile("./Shaders/" + ShaderName + "_frag.spv");
+    computeShaderSource = readFile("./Shaders/" + ShaderName + "_comp.spv");
 
     vertexShader = createShaderModule(vertexShaderSource, device, ShaderName);
     fragmentShader = createShaderModule(fragmentShaderSource, device, ShaderName);
+    computeShader = createShaderModule(computeShaderSource, device, ShaderName);
 
     this->device = device;
 
@@ -17,7 +19,7 @@ Shader::Shader(const std::string ShaderName, VkDevice device) {
     vshaderInfo.module = vertexShader;
     vshaderInfo.pName = "main";
 
-    shaderStageInfos.push_back(vshaderInfo);
+    graphicsShaderStageInfos.push_back(vshaderInfo);
     
     VkPipelineShaderStageCreateInfo fshaderInfo{};
     fshaderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -25,7 +27,15 @@ Shader::Shader(const std::string ShaderName, VkDevice device) {
     fshaderInfo.module = fragmentShader;
     fshaderInfo.pName = "main";
 
-    shaderStageInfos.push_back(fshaderInfo);
+    graphicsShaderStageInfos.push_back(fshaderInfo);
+
+    VkPipelineShaderStageCreateInfo cshaderInfo{};
+    cshaderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    cshaderInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    cshaderInfo.module = computeShader;
+    cshaderInfo.pName = "main";
+
+    computeShaderStageInfo = cshaderInfo;
 
     /*VkPipelineShaderStageCreateInfo tcshaderInfo{};
     tcshaderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -45,10 +55,15 @@ Shader::Shader(const std::string ShaderName, VkDevice device) {
 
 }
 
+Shader::Shader() {
+
+}
+
 Shader::~Shader() {
 
     vkDestroyShaderModule(device, vertexShader, nullptr);
     vkDestroyShaderModule(device, fragmentShader, nullptr);
+    vkDestroyShaderModule(device, computeShader, nullptr);
     
 }
 

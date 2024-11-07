@@ -127,12 +127,17 @@ private:
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
 
+	VkPipelineLayout computePipelineLayout;
+	VkPipeline computePipeline;
+
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffer;
 
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
 	VkImageView depthImageView;
+
+	Shader* basicShader;
 
 public:
 
@@ -141,6 +146,8 @@ public:
 	std::vector<VkSemaphore> imageAvailableSemaphore;
 	std::vector<VkSemaphore> renderFinishedSempahore;
 	std::vector<VkFence> inFlightFence;
+	VkSemaphore computeFinishedSemaphore;
+	VkFence computeInFlightFence;
 	VkFence imGuiFence;
 
 	Transform transform;
@@ -167,6 +174,7 @@ public:
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void dispatch(uint32_t imageIndex);
 	void draw(uint32_t& imageIndex);
 
 	//void initVulkan();
@@ -192,10 +200,13 @@ public:
 	void updateTransform();
 
 	void createGraphicsPipeline();
+	void createComputePipeline();
 	void createFramebuffers();
 
 	void createCommandPool();
 	void createCommandBuffer();
+
+	void recordComputeCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t index, uint32_t currentFrame);
 
 	void createDepthResources();
