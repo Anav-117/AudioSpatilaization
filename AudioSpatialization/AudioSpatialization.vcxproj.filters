@@ -27,8 +27,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Shaders.h" />
-    <ClInclude Include="VKConfig.h" />
     <ClInclude Include="..\imgui-master\imgui.h">
       <Filter>imgui</Filter>
     </ClInclude>
@@ -56,6 +54,12 @@
     <ClInclude Include="..\include\tiny_obj_loader.h">
       <Filter>ModelLoading</Filter>
     </ClInclude>
+    <ClInclude Include="VKConfig.h">
+      <Filter>Header File</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders.h">
+      <Filter>Header File</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">
@@ -66,6 +70,9 @@
     </Filter>
     <Filter Include="ModelLoading">
       <UniqueIdentifier>{15f8b079-9291-4554-8896-920c5d6975b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header File">
+      <UniqueIdentifier>{0d5eee5b-5f5b-443c-b762-7a283cb0a2f0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

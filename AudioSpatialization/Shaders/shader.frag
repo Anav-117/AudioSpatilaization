@@ -63,6 +63,7 @@ void main() {
     float volumeAlpha = 0.0;
 
     float i;
+    int insideVol = 0;
 
     for (i = 0; i < dist; i += step) {
         vec3 volumeSample = localCamera + i * normalize((transform.M * vec4(pos, 1.0)).xyz - transform.cameraPos);
@@ -73,10 +74,19 @@ void main() {
 
         accum += ampIn[index].amp;
 
+        if (ampIn[index].amp > 0) {
+            insideVol = 1;
+        }
+        if (insideVol == 1 && ampIn[index].amp == 0) {
+            break;
+        }
+
         if (accum >= 0.8) {
             accum = 0.8;
             break;
         }
+
+        //ampIn[index] = -1.0;
 
     }
 
@@ -89,6 +99,23 @@ void main() {
     finalColor = mix(vec4(diffuse*modelColor, 1.0), vec4(1.0, 0.0, 0.0, 1.0), accum);
 
     outColor = finalColor;
+
+    vec3 modifiedSample = (pos + vec3(minX, minY, minZ))/10.0 - vec3(1.0);
+
+    int index = int(int(modifiedSample.x) + int(modifiedSample.y)*yStride + int(modifiedSample.z)*zStride);
+
+    float posAmp = (ampIn[index].amp);
+
+    outColor = mix(vec4(1.0, 0.0, 0.0, 0.5), vec4(0.0, 1.0, 0.0, 1.0), posAmp);
+
+    if (posAmp > 0) {
+        outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+    else {
+        outColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+
+    //outColor = vec4((transform.M * vec4(pos, 1.0)).xyz + vec3(minX, minY, minZ), 1.0);
 
     //outColor = vec4(vec3(accum), 1.0);
 

@@ -32,6 +32,21 @@ struct Vertex {
 	glm::vec3 normal;
 };
 
+struct ModelExtent {
+
+	float xMin;
+	float xMax;
+	float yMin;
+	float yMax;
+	float zMin;
+	float zMax;
+
+};
+
+struct Triangle {
+	Vertex vertices[3];
+};
+
 struct QueueFamily {
 
 	uint32_t graphicsFamily;
@@ -78,7 +93,7 @@ class VulkanClass {
 
 private:
 
-	bool enableValidationLayers = false; // true;
+	bool enableValidationLayers = true;
 	std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 	std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	QueueFamily QueueFamilyIndex;
@@ -99,10 +114,17 @@ private:
 
 	VkDescriptorSetLayout transformDescriptorSetLayout;
 	VkDescriptorSetLayout AmpDescriptorSetLayout;
+	VkDescriptorSetLayout posDescriptorSetLayout;
+	VkDescriptorSetLayout midpointsDescriptorSetLayout;
+	VkDescriptorSetLayout sizesDescriptorSetLayout;
 	VkDescriptorPool uniformDescriptorPool;
+	VkDescriptorPool ampDescriptorPool;
 	std::vector<VkDescriptorSet> transformDescriptorSet;
 	VkDescriptorPool imguiDescriptorPool;
 	VkDescriptorSet ampDescriptorSet;
+	VkDescriptorSet posDescriptorSet;
+	VkDescriptorSet midpointsDescriptorSet;
+	VkDescriptorSet sizesDescriptorSet;
 
 	std::vector<VkBuffer> transformBuffer;
 	std::vector<VkDeviceMemory> transformBufferMemory;
@@ -110,6 +132,11 @@ private:
 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
+	std::vector<Triangle> triangles;
+	std::vector<Triangle> Octree;
+	std::vector<std::vector<float>> midpoints;
+	std::vector<float> midpointsGPU;
+	std::vector<unsigned int> Sizes;
 	
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
@@ -123,6 +150,19 @@ private:
 	VkDeviceMemory ampBufferMemory;
 	void* ampBufferMap;
 
+	unsigned int posBufferSize;
+	VkBuffer posBuffer;
+	VkDeviceMemory posBufferMemory;
+	void* posBufferMap;
+
+	VkBuffer midpointsBuffer;
+	VkDeviceMemory midpointsBufferMemory;
+	void* midpointsBufferMap;
+
+	VkBuffer sizesBuffer;
+	VkDeviceMemory sizesBufferMemory;
+	void* sizesBufferMap;
+
 	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
@@ -132,12 +172,15 @@ private:
 
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffer;
+	VkCommandBuffer computeCommandBuffer;
 
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
 	VkImageView depthImageView;
 
 	Shader* basicShader;
+
+	ModelExtent extents;
 
 public:
 
@@ -153,7 +196,6 @@ public:
 	Transform transform;
 
 	const std::string MODEL_PATH = "models/sponza.obj";
-	float extent[6];
 	AmpVolume* ampVolume = nullptr;
 	size_t ampVolumeSize;
 
@@ -174,7 +216,7 @@ public:
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-	void dispatch(uint32_t imageIndex);
+	void dispatch();
 	void draw(uint32_t& imageIndex);
 
 	//void initVulkan();
@@ -191,11 +233,13 @@ public:
 	void createDescriptorSetLayout();
 	void createDescriptorPools();
 	void createAmpDescriptorSetLayout();
+	void createPosDescriptorSetLayout();
 
 	void createTransformBuffer(VkDeviceSize bufferSize);
 	void createTransformDescriptorSet();
 
 	void createAmpDescriptorSet();
+	void createPosDescriptorSet();
 
 	void updateTransform();
 
@@ -206,7 +250,7 @@ public:
 	void createCommandPool();
 	void createCommandBuffer();
 
-	void recordComputeCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t index, uint32_t currentFrame);
 
 	void createDepthResources();
@@ -217,6 +261,11 @@ public:
 	void createVertexBuffer();
 	void createIndexBuffer();
 	void createAmpBuffer();
+	void createOctree();
+	void createTriangleBuffer();
+	void createAuxilaryOctreeBuffers();
+
+	void validateAmpBuffer();
 
 	void initImGui();
 	void drawGui();

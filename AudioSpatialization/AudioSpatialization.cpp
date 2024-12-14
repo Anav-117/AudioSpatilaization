@@ -90,9 +90,11 @@ void display() {
 
 	vkWaitForFences(vk->getLogicalDevice(), 1, &vk->inFlightFence[hostSwapChain::currentFrame], VK_TRUE, UINT32_MAX);
 
-	vk->dispatch(hostSwapChain::currentFrame);
+	vk->dispatch();
 
 	vkWaitForFences(vk->getLogicalDevice(), 1, &vk->computeInFlightFence, VK_TRUE, UINT64_MAX);
+
+	//vk->validateAmpBuffer();
 
 	vk->draw(hostSwapChain::currentFrame);
 
@@ -135,6 +137,7 @@ int main() {
 	vk->createTransformDescriptorSet();
 	//vk->createAmpBuffer();
 	vk->createAmpDescriptorSet();
+	vk->createPosDescriptorSet();
 
 	glfwSetKeyCallback(window, keyboardCallback);
 	glfwSetWindowSizeCallback(window, windowResizeCallback);

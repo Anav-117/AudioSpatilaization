@@ -6,14 +6,224 @@ struct Amplitude {
 	float amp;
 };
 
+struct Vertex {
+	vec3 pos;
+	vec3 normal;
+};
+
+struct Triangle {
+	Vertex vertices[3];
+};
+
 layout(std430, set = 0, binding = 0) buffer AmpVolume {
    Amplitude ampVolume[ ];
 };
 
-void main() {
+layout(std430, set = 1, binding = 0) buffer TriangleBuffer {
+	Triangle triangles[ ];	
+};
+
+layout(std430, set = 2, binding = 0) buffer MidpointBuffer {
+	float midpoints[ ];	
+};
+
+layout(std430, set = 3, binding = 0) buffer SizesBuffer {
+	uint sizes[ ];	
+};
+
+vec3 sourcePos = vec3(0.0, 5.0, 0.0);
+
+vec3 CellDim;
+
+int xExtent = 372;
+int yExtent = 155;
+int zExtent = 228;
+
+float minX = 1920.95;
+float minY = 1429.43;
+float minZ = 1182.81;
+
+float perpDist(vec3 p1, vec3 p2, vec3 cell) {
+	vec3 AB = p2-p1;
+	vec3 AP = cell-p1;
+
+	return ((length(cross(AB, AP)))/length(AB));
+}
+
+int rayTriangleIntersection (vec3 start, vec3 end, Triangle T) {
+
+	vec3 BCenter = (T.vertices[0].pos + T.vertices[1].pos + T.vertices[2].pos) / 3.0;
+
+	float largestDist = 0;
 	
-	for (int i=0; i<10000; i++) {
-		ampVolume[i].amp = 1.0;
+	for (int i=0; i<3; i++) {
+		if (length(BCenter - T.vertices[i].pos) > largestDist) {
+			largestDist = length(BCenter - T.vertices[i].pos);
+		}
 	}
+
+	if (perpDist(start, end, BCenter) < largestDist) {
+		return 1;
+	}
+	
+	return 0;
+	
+}
+
+int Collision(vec3 start, vec3 end, ivec3 ID) {
+
+	int flatID = ID.x + ID.y * 8 + ID.z * 64;
+
+	int SizeBefore = 0;
+	int Size = int(sizes[flatID]);
+
+	for (uint i=0; i<flatID; i++) {
+		SizeBefore += int(sizes[i]);
+	}
+
+	if (Size == 0) {
+		return 0;
+	}
+
+	for (int i = SizeBefore-1; i < SizeBefore+Size; i++) {
+		Triangle T = triangles[i];
+
+		if (rayTriangleIntersection (start, end, T) == 1) {
+			return 1;
+		}
+
+	}
+
+	return 0;
+}
+
+vec3 cellCenter (vec3 cellID) {
+
+	float X = (midpoints[int(cellID.x)] + midpoints[int(cellID.x+1)])/2.0;
+	float Y = (midpoints[int(cellID.x+9)] + midpoints[int(cellID.x+1+9)])/2.0;
+	float Z = (midpoints[int(cellID.x+18)] + midpoints[int(cellID.x+1+18)])/2.0;
+
+	return vec3(X, Y, Z);
+	
+}
+
+int DDA(vec3 start, vec3 end, ivec3 destID, ivec3 sourceID) {
+	ivec3 IndexStart = sourceID;
+	ivec3 IndexEnd = destID;
+	vec3 pos = start;
+	
+	ivec3 lastVisitedCell = IndexStart;
+	ivec3 Diff = IndexEnd - IndexStart;
+
+	float distThreshold = length(CellDim/2.0);
+
+	int x = IndexStart.x;
+	int y = IndexStart.y;
+	int z = IndexStart.z;
+
+	while(ivec3(x, y, z) != IndexEnd) {
+
+		vec3 currentCell = vec3(x, y, z);
+
+		int collide = Collision(start, end, ivec3(x, y, z));
+
+		if (collide == 1) {
+			return 1;
+		}
+
+		vec3 nextCell = currentCell + vec3(1, 0, 0);
+		int increment = 0;
+		if (perpDist(start, end, cellCenter(nextCell)) > perpDist(start, end, cellCenter(currentCell+vec3(0, 1, 0)))) {
+			nextCell = currentCell + vec3(0, 1, 0);
+			increment = 1;
+		}
+		if (perpDist(start, end, cellCenter(nextCell)) > perpDist(start, end, cellCenter(currentCell+vec3(0, 0, 1)))) {
+			nextCell = currentCell + vec3(0, 0, 1);
+			increment = 2;
+		}
+
+		if (increment == 0){
+			if (sourceID.x < destID.x) {
+				x++;
+			}
+			else {
+				x--;
+			}
+		}
+		if (increment == 1){
+			if (sourceID.y < destID.y) {
+				y++;
+			}
+			else {
+				y--;
+			}
+		}
+		if (increment == 2){
+			if (sourceID.z < destID.z) {
+				z++;
+			}
+			else {
+				z--;
+			}
+		}
+	}
+
+	return 0;
+}
+
+void main() {
+
+	vec3 pos = vec3(gl_GlobalInvocationID.xyz)*10.0 - vec3(minX, minY, minZ);
+
+	uint xIndex = 0;
+	uint yIndex = 0;
+	uint zIndex = 0;
+
+	ivec3 sourceID = ivec3(0);
+
+	CellDim = vec3(midpoints[1] - midpoints[0], midpoints[10] - midpoints[9], midpoints[19] - midpoints[18]);
+
+	for (int i = 0; i < 8; i++) {
+		if (pos.x > midpoints[i] && pos.x < midpoints[i+1]) {
+			xIndex = i;
+		}
+		if (sourcePos.x > midpoints[i] && sourcePos.x < midpoints[i+1]) {
+			sourceID.x = i;
+		}
+	}	  
+	for (int i = 9; i < 17; i++) {
+		if (pos.y > midpoints[i] && pos.y < midpoints[i+1]) {
+			yIndex = i-9;
+		}
+		if (sourcePos.y > midpoints[i] && sourcePos.y < midpoints[i+1]) {
+			sourceID.y = i-9;
+		}
+	}
+	for (int i = 18; i < 26; i++) {
+		if (pos.z > midpoints[i] && pos.z < midpoints[i+1]) {
+			zIndex = i-18;
+		}
+		if (sourcePos.z > midpoints[i] && sourcePos.z < midpoints[i+1]) {
+			sourceID.z = i-18;
+		}
+	}
+
+	uint flatID = xIndex + yIndex * 8 + zIndex * 8 * 8;
+
+	ivec3 ID = ivec3(xIndex, yIndex, zIndex); 
+
+	vec3 voxelCenter = vec3((midpoints[xIndex] + midpoints[xIndex+1])/2.0, (midpoints[yIndex+9] + midpoints[yIndex+9+1])/2.0, (midpoints[zIndex+18] + midpoints[zIndex+18+1])/2.0);
+
+	int collision = DDA(sourcePos, voxelCenter, ID, sourceID);
+
+	uint AmpFlatID = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * 372 + gl_GlobalInvocationID.z * 372 * 155;
+
+	if (collision == 1) {
+		ampVolume[AmpFlatID].amp = 1.0;
+		return;
+	}
+		
+	ampVolume[AmpFlatID].amp = 0.0;
+	return;
 
 }
