@@ -31,7 +31,17 @@ layout(std430, set = 3, binding = 0) buffer SizesBuffer {
 	uint sizes[ ];	
 };
 
+layout(set = 4, binding=0) uniform Transform {
+    mat4 M;
+    mat4 V;
+    mat4 P;
+    vec3 cameraPos;
+	vec3 cameraFront;
+} transform;
+
 vec3 sourcePos = vec3(0.0, 5.0, 0.0);
+
+float fov = 45;
 
 vec3 CellDim;
 
@@ -48,6 +58,10 @@ float perpDist(vec3 p1, vec3 p2, vec3 cell) {
 	vec3 AP = cell-p1;
 
 	return ((length(cross(AB, AP)))/length(AB));
+}
+
+float rand(vec3 co){
+    return fract(sin(dot(co, vec3(12.9898, 78.233, 103.5392))) * 43758.5453);
 }
 
 int rayTriangleIntersection (vec3 start, vec3 end, Triangle T) {
@@ -120,6 +134,13 @@ int DDA(vec3 start, vec3 end, ivec3 destID, ivec3 sourceID) {
 	int x = IndexStart.x;
 	int y = IndexStart.y;
 	int z = IndexStart.z;
+
+	int collide = Collision(start, end, ivec3(x, y, z));
+
+	if (collide == 1) {
+		return 1;
+	}
+
 
 	while(ivec3(x, y, z) != IndexEnd) {
 
@@ -214,16 +235,21 @@ void main() {
 
 	vec3 voxelCenter = vec3((midpoints[xIndex] + midpoints[xIndex+1])/2.0, (midpoints[yIndex+9] + midpoints[yIndex+9+1])/2.0, (midpoints[zIndex+18] + midpoints[zIndex+18+1])/2.0);
 
-	int collision = DDA(sourcePos, voxelCenter, ID, sourceID);
-
 	uint AmpFlatID = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * 372 + gl_GlobalInvocationID.z * 372 * 155;
 
-	if (collision == 1) {
-		ampVolume[AmpFlatID].amp = 1.0;
-		return;
-	}
+	//if (dot(normalize(transform.cameraPos - voxelCenter), transform.cameraFront) < 0.7) {
+	//	ampVolume[AmpFlatID].amp = 0.0;
+	//	return;
+	//}
+
+	//int collision = DDA(sourcePos, voxelCenter, ID, sourceID);
+
+	//if (collision == 1) {
+	//	ampVolume[AmpFlatID].amp = 1;
+	//	return;
+	//}
 		
-	ampVolume[AmpFlatID].amp = 0.0;
+	ampVolume[AmpFlatID].amp =  rand(gl_GlobalInvocationID); //sizes[flatID];
 	return;
 
 }

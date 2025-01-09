@@ -106,15 +106,16 @@ void main() {
 
     float posAmp = (ampIn[index].amp);
 
-    outColor = mix(vec4(1.0, 0.0, 0.0, 0.5), vec4(0.0, 1.0, 0.0, 1.0), posAmp);
 
-    if (posAmp > 0) {
+    if (posAmp == 1) {
         outColor = vec4(1.0, 0.0, 0.0, 1.0);
     }
     else {
         outColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
 
+    outColor = mix(vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), posAmp);
+    
     //outColor = vec4((transform.M * vec4(pos, 1.0)).xyz + vec3(minX, minY, minZ), 1.0);
 
     //outColor = vec4(vec3(accum), 1.0);

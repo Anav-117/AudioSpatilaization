@@ -18,6 +18,7 @@ layout(binding=0) uniform Transform {
     mat4 V;
     mat4 P;
     vec3 cameraPos;
+    vec3 cameraFront;
 } transform;
 
 void main() {

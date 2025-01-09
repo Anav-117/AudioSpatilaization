@@ -581,7 +581,7 @@ void VulkanClass::createDescriptorSetLayout() {
 	transformLayoutBinding.binding = 0;
 	transformLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	transformLayoutBinding.descriptorCount = 1;
-	transformLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	transformLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 
 	VkDescriptorSetLayoutCreateInfo transformLayoutInfo{};
 	transformLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -853,7 +853,7 @@ void VulkanClass::createComputePipeline() {
 	VkPipelineLayoutCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-	std::vector<VkDescriptorSetLayout> setLayouts = {AmpDescriptorSetLayout, posDescriptorSetLayout, midpointsDescriptorSetLayout, sizesDescriptorSetLayout};
+	std::vector<VkDescriptorSetLayout> setLayouts = {AmpDescriptorSetLayout, posDescriptorSetLayout, midpointsDescriptorSetLayout, sizesDescriptorSetLayout, transformDescriptorSetLayout};
 	pipelineInfo.setLayoutCount = setLayouts.size();
 	pipelineInfo.pSetLayouts = setLayouts.data();
 
@@ -1101,7 +1101,7 @@ void VulkanClass::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
-	std::vector<VkDescriptorSet> descriptorSets = { ampDescriptorSet, posDescriptorSet, midpointsDescriptorSet, sizesDescriptorSet };
+	std::vector<VkDescriptorSet> descriptorSets = { ampDescriptorSet, posDescriptorSet, midpointsDescriptorSet, sizesDescriptorSet, transformDescriptorSet[0]};
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, 0);
 
 	vkCmdDispatch(commandBuffer, 372, 155, 228);
