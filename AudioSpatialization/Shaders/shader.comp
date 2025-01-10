@@ -111,85 +111,14 @@ int Collision(vec3 start, vec3 end, ivec3 ID) {
 	return 0;
 }
 
-vec3 cellCenter (vec3 cellID) {
+ivec3 getCellID(vec3 pos) {
+	ivec3 cellID;
 
-	float X = (midpoints[int(cellID.x)] + midpoints[int(cellID.x+1)])/2.0;
-	float Y = (midpoints[int(cellID.x+9)] + midpoints[int(cellID.x+1+9)])/2.0;
-	float Z = (midpoints[int(cellID.x+18)] + midpoints[int(cellID.x+1+18)])/2.0;
-
-	return vec3(X, Y, Z);
+	cellID.x = int((pos.x/float(xExtent))*8.0);
+	cellID.y = int((pos.y/float(yExtent))*8.0);
+	cellID.z = int((pos.z/float(zExtent))*8.0);
 	
-}
-
-int DDA(vec3 start, vec3 end, ivec3 destID, ivec3 sourceID) {
-	ivec3 IndexStart = sourceID;
-	ivec3 IndexEnd = destID;
-	vec3 pos = start;
-	
-	ivec3 lastVisitedCell = IndexStart;
-	ivec3 Diff = IndexEnd - IndexStart;
-
-	float distThreshold = length(CellDim/2.0);
-
-	int x = IndexStart.x;
-	int y = IndexStart.y;
-	int z = IndexStart.z;
-
-	int collide = Collision(start, end, ivec3(x, y, z));
-
-	if (collide == 1) {
-		return 1;
-	}
-
-
-	while(ivec3(x, y, z) != IndexEnd) {
-
-		vec3 currentCell = vec3(x, y, z);
-
-		int collide = Collision(start, end, ivec3(x, y, z));
-
-		if (collide == 1) {
-			return 1;
-		}
-
-		vec3 nextCell = currentCell + vec3(1, 0, 0);
-		int increment = 0;
-		if (perpDist(start, end, cellCenter(nextCell)) > perpDist(start, end, cellCenter(currentCell+vec3(0, 1, 0)))) {
-			nextCell = currentCell + vec3(0, 1, 0);
-			increment = 1;
-		}
-		if (perpDist(start, end, cellCenter(nextCell)) > perpDist(start, end, cellCenter(currentCell+vec3(0, 0, 1)))) {
-			nextCell = currentCell + vec3(0, 0, 1);
-			increment = 2;
-		}
-
-		if (increment == 0){
-			if (sourceID.x < destID.x) {
-				x++;
-			}
-			else {
-				x--;
-			}
-		}
-		if (increment == 1){
-			if (sourceID.y < destID.y) {
-				y++;
-			}
-			else {
-				y--;
-			}
-		}
-		if (increment == 2){
-			if (sourceID.z < destID.z) {
-				z++;
-			}
-			else {
-				z--;
-			}
-		}
-	}
-
-	return 0;
+	return cellID;
 }
 
 void main() {
@@ -248,8 +177,37 @@ void main() {
 	//	ampVolume[AmpFlatID].amp = 1;
 	//	return;
 	//}
+
+	vec3 clampedGID = vec3(gl_GlobalInvocationID.x/float(xExtent), gl_GlobalInvocationID.y/float(yExtent), gl_GlobalInvocationID.z/float(zExtent)) * 8.0;
+	vec3 binnedGID = vec3(int(clampedGID.x), int(clampedGID.y), int(clampedGID.z));
+
+	float dist = length(sourcePos - pos);
+	float step = dist/10.0;
+
+	ivec3 currentCell = sourceID;
+	int cellsTravelled = 0;
+	int Collided = 0;
+
+	for (uint i=0; i<10; i++) {
+		vec3 rayPos = sourcePos + i*step*normalize(pos - sourcePos);
 		
-	ampVolume[AmpFlatID].amp =  rand(gl_GlobalInvocationID); //sizes[flatID];
+		ivec3 cellID = getCellID((rayPos + vec3(minX, minY, minZ))/10.0);
+
+		if (cellID == currentCell) {
+			continue;
+		}
+
+		cellsTravelled++;
+		currentCell = cellID;
+
+		if (Collision(sourcePos, pos, cellID) == 1) {
+			Collided = 1;
+			break;
+		}
+
+	}
+
+	ampVolume[AmpFlatID].amp =  Collided; //sizes[flatID];
 	return;
 
 }

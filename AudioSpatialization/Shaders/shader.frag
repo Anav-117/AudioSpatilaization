@@ -114,7 +114,7 @@ void main() {
         outColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
 
-    outColor = mix(vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), posAmp);
+    outColor = mix(vec4(0.0, 0.0, 0.0, 1.0), vec4(1.0, 0.0, 0.0, 1.0), posAmp);
     
     //outColor = vec4((transform.M * vec4(pos, 1.0)).xyz + vec3(minX, minY, minZ), 1.0);
 
