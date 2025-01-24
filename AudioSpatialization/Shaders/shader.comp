@@ -39,11 +39,7 @@ layout(set = 4, binding=0) uniform Transform {
 	vec3 cameraFront;
 } transform;
 
-vec3 sourcePos = vec3(0.0, 5.0, 0.0);
-
-float fov = 45;
-
-vec3 CellDim;
+vec3 sourcePos = vec3(0.0);
 
 int xExtent = 372;
 int yExtent = 155;
@@ -60,50 +56,94 @@ float perpDist(vec3 p1, vec3 p2, vec3 cell) {
 	return ((length(cross(AB, AP)))/length(AB));
 }
 
+float fraction(float num) {
+	if (num > 0) 
+		return num - floor(num);
+	else 
+		return num - ceil(num);
+}
+
 float rand(vec3 co){
-    return fract(sin(dot(co, vec3(12.9898, 78.233, 103.5392))) * 43758.5453);
+    return (fraction(sin(dot(co, vec3(12.9898, 78.233, 103.5392))) * 43758.5453));
+}
+
+vec3 randVec3(vec3 co) {
+	return normalize(vec3(rand(co.xyz), rand(co.yzx), rand(co.zxy)));
+}
+
+#define PI 3.14159265359
+
+vec3 randomSpherePoint(vec3 rand) {
+  float ang1 = (rand.x + 1.0) * PI; // [-1..1) -> [0..2*PI)
+  float u = rand.y; // [-1..1), cos and acos(2v-1) cancel each other out, so we arrive at [-1..1)
+  float u2 = u * u;
+  float sqrt1MinusU2 = sqrt(1.0 - u2);
+  float x = sqrt1MinusU2 * cos(ang1);
+  float y = sqrt1MinusU2 * sin(ang1);
+  float z = u;
+  return normalize(vec3(x, y, z));
 }
 
 int rayTriangleIntersection (vec3 start, vec3 end, Triangle T) {
 
-	vec3 BCenter = (T.vertices[0].pos + T.vertices[1].pos + T.vertices[2].pos) / 3.0;
+	vec3 edge1 = T.vertices[1].pos - T.vertices[0].pos;
+	vec3 edge2 = T.vertices[2].pos - T.vertices[0].pos;
+	vec3 ray_vector = end - start;
+	vec3 ray_cross_e2 = cross(ray_vector, edge2);
+	float det = dot(edge1, ray_cross_e2);
 
-	float largestDist = 0;
-	
-	for (int i=0; i<3; i++) {
-		if (length(BCenter - T.vertices[i].pos) > largestDist) {
-			largestDist = length(BCenter - T.vertices[i].pos);
-		}
+	if (det > -0.000001 && det < 0.000001) {
+		return 0;
 	}
 
-	if (perpDist(start, end, BCenter) < largestDist) {
-		return 1;
-	}
-	
-	return 0;
-	
+	float inv_det = 1.0/det;
+	vec3 s = start - T.vertices[0].pos;
+	float u = inv_det * dot(s, ray_cross_e2);
+
+	if ((u < 0 && abs(u) > 0.000001) || (u > 1 && abs(u-1) > 0.000001))
+        return 0;
+
+	vec3 s_cross_e1 = cross(s, edge1);
+    float v = inv_det * dot(ray_vector, s_cross_e1);
+
+	if ((v < 0 && abs(v) > 0.000001) || (u + v > 1 && abs(u + v - 1) > 0.000001))
+        return 0;
+
+	float t = inv_det * dot(edge2, s_cross_e1);
+	float segmentLength = length(end - start);
+
+    if (t < 0.0 || t > segmentLength) 
+    {
+        return 0;
+    }
+    
+    return 1;
 }
 
 int Collision(vec3 start, vec3 end, ivec3 ID) {
 
 	int flatID = ID.x + ID.y * 8 + ID.z * 64;
 
+	if (ID == ivec3(gl_GlobalInvocationID)) {
+		return -1;
+	}
+
 	int SizeBefore = 0;
 	int Size = int(sizes[flatID]);
 
-	for (uint i=0; i<flatID; i++) {
-		SizeBefore += int(sizes[i]);
+	if (Size == 0) {
+		return -2;
 	}
 
-	if (Size == 0) {
-		return 0;
+	for (uint i=0; i<flatID; i++) {
+		SizeBefore += int(sizes[i]);
 	}
 
 	for (int i = SizeBefore-1; i < SizeBefore+Size; i++) {
 		Triangle T = triangles[i];
 
 		if (rayTriangleIntersection (start, end, T) == 1) {
-			return 1;
+			return i;
 		}
 
 	}
@@ -114,100 +154,83 @@ int Collision(vec3 start, vec3 end, ivec3 ID) {
 ivec3 getCellID(vec3 pos) {
 	ivec3 cellID;
 
-	cellID.x = int((pos.x/float(xExtent))*8.0);
-	cellID.y = int((pos.y/float(yExtent))*8.0);
-	cellID.z = int((pos.z/float(zExtent))*8.0);
+	cellID = ivec3((pos / (vec3(xExtent, yExtent, zExtent) * 10.0)) * 8.0);
 	
 	return cellID;
 }
 
+int checkModelExtent(vec3 pos) {
+	
+	if (pos.x > float(xExtent)*10.0-minX || pos.x < -minX) {
+		return 1;
+	}
+	if (pos.y > float(yExtent)*10.0-minY || pos.y < -minY) {
+		return 2;
+	}
+	if (pos.z > float(zExtent)*10.0-minZ || pos.z < -minZ) {
+		return 3;
+	}
+
+	return 0;
+}
+
 void main() {
+	
+	sourcePos = vec3(xExtent, yExtent, zExtent) * 5.0 - vec3(minX, minY, minZ);
 
-	vec3 pos = vec3(gl_GlobalInvocationID.xyz)*10.0 - vec3(minX, minY, minZ);
+	ivec3 sourceCell = getCellID(sourcePos);
 
-	uint xIndex = 0;
-	uint yIndex = 0;
-	uint zIndex = 0;
+	vec3 rayPos = vec3(gl_GlobalInvocationID) * 10.0 - vec3(minX, minY, minZ) + vec3(5.0);
 
-	ivec3 sourceID = ivec3(0);
+	vec3 accum = vec3(0);
 
-	CellDim = vec3(midpoints[1] - midpoints[0], midpoints[10] - midpoints[9], midpoints[19] - midpoints[18]);
+	for (int i=0; i<1; i++) {
 
-	for (int i = 0; i < 8; i++) {
-		if (pos.x > midpoints[i] && pos.x < midpoints[i+1]) {
-			xIndex = i;
-		}
-		if (sourcePos.x > midpoints[i] && sourcePos.x < midpoints[i+1]) {
-			sourceID.x = i;
-		}
-	}	  
-	for (int i = 9; i < 17; i++) {
-		if (pos.y > midpoints[i] && pos.y < midpoints[i+1]) {
-			yIndex = i-9;
-		}
-		if (sourcePos.y > midpoints[i] && sourcePos.y < midpoints[i+1]) {
-			sourceID.y = i-9;
+		int depth = 0;	
+
+		vec3 rayDir = normalize((sourcePos - rayPos));// + randomSpherePoint(randVec3(vec3(i, i*27, i+30))));
+
+		ivec3 currentCell = ivec3(getCellID(rayPos + vec3(minX, minY, minZ)));
+
+		while (checkModelExtent(rayPos) == 0 && depth < 1000) {
+
+			ivec3 cellID = getCellID(rayPos + vec3(minX, minY, minZ));
+
+			if (cellID == currentCell) {
+				depth++;
+				rayPos = rayPos + 10.0*rayDir;
+				continue;
+			}
+			else {
+				currentCell = cellID;
+			}
+
+			int collide = Collision(rayPos, sourcePos, cellID);
+
+			if (collide > 0) {
+				
+				ivec3 ampCellID = ivec3(gl_GlobalInvocationID);
+				int ampFlatID = ampCellID.x + ampCellID.y * xExtent + ampCellID.z * xExtent * yExtent;
+
+				ampVolume[ampFlatID].amp = 0;
+
+				break;
+			}
+
+			if (length(sourcePos - rayPos) < 1.0) {
+
+				ivec3 ampCellID = ivec3(gl_GlobalInvocationID);
+				int ampFlatID = ampCellID.x + ampCellID.y * xExtent + ampCellID.z * xExtent * yExtent;
+
+				ampVolume[ampFlatID].amp = 1.0;
+
+				break;
+
+			}
+			depth++;
+
+			rayPos = rayPos + 1.0*rayDir;
+
 		}
 	}
-	for (int i = 18; i < 26; i++) {
-		if (pos.z > midpoints[i] && pos.z < midpoints[i+1]) {
-			zIndex = i-18;
-		}
-		if (sourcePos.z > midpoints[i] && sourcePos.z < midpoints[i+1]) {
-			sourceID.z = i-18;
-		}
-	}
-
-	uint flatID = xIndex + yIndex * 8 + zIndex * 8 * 8;
-
-	ivec3 ID = ivec3(xIndex, yIndex, zIndex); 
-
-	vec3 voxelCenter = vec3((midpoints[xIndex] + midpoints[xIndex+1])/2.0, (midpoints[yIndex+9] + midpoints[yIndex+9+1])/2.0, (midpoints[zIndex+18] + midpoints[zIndex+18+1])/2.0);
-
-	uint AmpFlatID = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * 372 + gl_GlobalInvocationID.z * 372 * 155;
-
-	//if (dot(normalize(transform.cameraPos - voxelCenter), transform.cameraFront) < 0.7) {
-	//	ampVolume[AmpFlatID].amp = 0.0;
-	//	return;
-	//}
-
-	//int collision = DDA(sourcePos, voxelCenter, ID, sourceID);
-
-	//if (collision == 1) {
-	//	ampVolume[AmpFlatID].amp = 1;
-	//	return;
-	//}
-
-	vec3 clampedGID = vec3(gl_GlobalInvocationID.x/float(xExtent), gl_GlobalInvocationID.y/float(yExtent), gl_GlobalInvocationID.z/float(zExtent)) * 8.0;
-	vec3 binnedGID = vec3(int(clampedGID.x), int(clampedGID.y), int(clampedGID.z));
-
-	float dist = length(sourcePos - pos);
-	float step = dist/10.0;
-
-	ivec3 currentCell = sourceID;
-	int cellsTravelled = 0;
-	int Collided = 0;
-
-	for (uint i=0; i<10; i++) {
-		vec3 rayPos = sourcePos + i*step*normalize(pos - sourcePos);
-		
-		ivec3 cellID = getCellID((rayPos + vec3(minX, minY, minZ))/10.0);
-
-		if (cellID == currentCell) {
-			continue;
-		}
-
-		cellsTravelled++;
-		currentCell = cellID;
-
-		if (Collision(sourcePos, pos, cellID) == 1) {
-			Collided = 1;
-			break;
-		}
-
-	}
-
-	ampVolume[AmpFlatID].amp =  Collided; //sizes[flatID];
-	return;
-
 }

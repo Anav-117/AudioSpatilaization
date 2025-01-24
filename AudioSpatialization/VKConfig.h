@@ -184,6 +184,8 @@ private:
 
 public:
 
+	bool first = true;
+
 	bool framebufferResized = false;
 
 	std::vector<VkSemaphore> imageAvailableSemaphore;

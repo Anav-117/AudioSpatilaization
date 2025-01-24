@@ -149,15 +149,15 @@ VulkanClass::~VulkanClass() {
 
 	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
-	
+
 	vkDestroyPipeline(logicalDevice, computePipeline, nullptr);
 	vkDestroyPipelineLayout(logicalDevice, computePipelineLayout, nullptr);
-	
+
 	vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
 
 	delete basicShader;
 
-	for (size_t i=0; i<swapChain.MAX_FRAMES_IN_FLIGHT; i++)
+	for (size_t i = 0; i < swapChain.MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(logicalDevice, imageAvailableSemaphore[i], nullptr);
 		vkDestroySemaphore(logicalDevice, renderFinishedSempahore[i], nullptr);
@@ -169,7 +169,7 @@ VulkanClass::~VulkanClass() {
 
 	vkDestroyFence(logicalDevice, imGuiFence, nullptr);
 
-	for (size_t i=0; i<swapChain.MAX_FRAMES_IN_FLIGHT; i++)
+	for (size_t i = 0; i < swapChain.MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer[i]);
 	}
@@ -214,7 +214,7 @@ void VulkanClass::createInstance() {
 	else {
 		createInfo.enabledLayerCount = 0;
 		createInfo.ppEnabledLayerNames = nullptr;
-	} 
+	}
 
 	if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to create Vulkan Instance\n");
@@ -227,7 +227,7 @@ bool VulkanClass::findQueueFamilies(VkPhysicalDevice device) {
 	uint32_t physicalDeviceQueueFamilyCount;
 
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &physicalDeviceQueueFamilyCount, nullptr);
-	
+
 	if (physicalDeviceQueueFamilyCount == 0) {
 		throw std::runtime_error("Cannot Find Any Queue Families On Physical Device\n");
 	}
@@ -241,7 +241,7 @@ bool VulkanClass::findQueueFamilies(VkPhysicalDevice device) {
 			QueueFamilyIndex.graphicsFamily = i;
 			return true;
 		}
-		
+
 		VkBool32 presentSupport = VK_FALSE;
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
@@ -296,7 +296,7 @@ VkPhysicalDevice VulkanClass::findPhysicalDevice() {
 	vkEnumeratePhysicalDevices(instance, &numSupportedDevices, physicalDevices.data());
 
 	for (auto device : physicalDevices) {
-		
+
 		VkPhysicalDeviceProperties properties;
 		vkGetPhysicalDeviceProperties(device, &properties);
 
@@ -337,7 +337,7 @@ void VulkanClass::createLogicalDevice() {
 	float queuePriority = 1.0;
 	std::vector<VkDeviceQueueCreateInfo> queueInfos;
 
-	std::set<uint32_t> UniqueQueueFamilies = {QueueFamilyIndex.graphicsFamily, QueueFamilyIndex.presentFamily};
+	std::set<uint32_t> UniqueQueueFamilies = { QueueFamilyIndex.graphicsFamily, QueueFamilyIndex.presentFamily };
 
 	for (auto queue : UniqueQueueFamilies) {
 		VkDeviceQueueCreateInfo queueInfo{};
@@ -539,7 +539,7 @@ void VulkanClass::createRenderPass() {
 	VkAttachmentReference attachmentRef{};
 	attachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	attachmentRef.attachment = 0;
-	
+
 	VkAttachmentReference depthAttachmentRef{};
 	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	depthAttachmentRef.attachment = 1;
@@ -647,7 +647,7 @@ void VulkanClass::createDescriptorPools() {
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1; 
+	poolInfo.poolSizeCount = 1;
 	poolInfo.pPoolSizes = &poolSize;
 	poolInfo.maxSets = static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT);
 
@@ -789,7 +789,7 @@ void VulkanClass::createAmpDescriptorSet() {
 	VkDescriptorBufferInfo bufferInfo{};
 	bufferInfo.buffer = ampBuffer;
 	bufferInfo.offset = 0;
-	bufferInfo.range = sizeof(AmpVolume)*ampVolumeSize;
+	bufferInfo.range = sizeof(AmpVolume) * ampVolumeSize;
 
 	VkWriteDescriptorSet ampWrite{};
 	ampWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -853,7 +853,7 @@ void VulkanClass::createComputePipeline() {
 	VkPipelineLayoutCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-	std::vector<VkDescriptorSetLayout> setLayouts = {AmpDescriptorSetLayout, posDescriptorSetLayout, midpointsDescriptorSetLayout, sizesDescriptorSetLayout, transformDescriptorSetLayout};
+	std::vector<VkDescriptorSetLayout> setLayouts = { AmpDescriptorSetLayout, posDescriptorSetLayout, midpointsDescriptorSetLayout, sizesDescriptorSetLayout, transformDescriptorSetLayout };
 	pipelineInfo.setLayoutCount = setLayouts.size();
 	pipelineInfo.pSetLayouts = setLayouts.data();
 
@@ -891,7 +891,7 @@ void VulkanClass::createGraphicsPipeline() {
 	attributeDescriptions[0].binding = 0;
 	attributeDescriptions[0].location = 0;
 	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[0].offset = offsetof(Vertex, pos);	
+	attributeDescriptions[0].offset = offsetof(Vertex, pos);
 	attributeDescriptions[1].binding = 0;
 	attributeDescriptions[1].location = 1;
 	attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -1051,7 +1051,7 @@ void VulkanClass::recreateSwapChain() {
 		glfwWaitEvents();
 	}
 
-    vkDeviceWaitIdle(logicalDevice);
+	vkDeviceWaitIdle(logicalDevice);
 
 	vkDestroyImageView(logicalDevice, depthImageView, nullptr);
 	vkDestroyImage(logicalDevice, depthImage, nullptr);
@@ -1101,7 +1101,7 @@ void VulkanClass::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
-	std::vector<VkDescriptorSet> descriptorSets = { ampDescriptorSet, posDescriptorSet, midpointsDescriptorSet, sizesDescriptorSet, transformDescriptorSet[0]};
+	std::vector<VkDescriptorSet> descriptorSets = { ampDescriptorSet, posDescriptorSet, midpointsDescriptorSet, sizesDescriptorSet, transformDescriptorSet[0] };
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, 0);
 
 	vkCmdDispatch(commandBuffer, 372, 155, 228);
@@ -1116,7 +1116,7 @@ void VulkanClass::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t in
 
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	
+
 	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
 		throw std::runtime_error("Failed To Being Recording Command Buffer\n");
 	}
@@ -1137,10 +1137,10 @@ void VulkanClass::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t in
 	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	barrier.buffer = ampBuffer;
-	barrier.size = sizeof(AmpVolume)*ampVolumeSize;
+	barrier.size = sizeof(AmpVolume) * ampVolumeSize;
 
-	vkCmdPipelineBarrier(commandBuffer,	VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
-	
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -1190,7 +1190,7 @@ void VulkanClass::createCommandBuffer() {
 
 	commandBuffer.resize(swapChain.MAX_FRAMES_IN_FLIGHT);
 
-	for (size_t i=0; i<swapChain.MAX_FRAMES_IN_FLIGHT; i++)
+	for (size_t i = 0; i < swapChain.MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer[i]) != VK_SUCCESS) {
 			throw std::runtime_error("Failed To Allocate Command Buffer\n");
@@ -1207,8 +1207,8 @@ void VulkanClass::createSyncObjects() {
 
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	
-	
+
+
 	VkFenceCreateInfo fenceInfo{};
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -1217,7 +1217,7 @@ void VulkanClass::createSyncObjects() {
 	renderFinishedSempahore.resize(swapChain.MAX_FRAMES_IN_FLIGHT);
 	inFlightFence.resize(swapChain.MAX_FRAMES_IN_FLIGHT);
 
-	for (size_t i=0; i<swapChain.MAX_FRAMES_IN_FLIGHT; i++)
+	for (size_t i = 0; i < swapChain.MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		if (vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphore[i]) != VK_SUCCESS ||
 			vkCreateSemaphore(logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSempahore[i]) != VK_SUCCESS ||
@@ -1279,11 +1279,11 @@ void VulkanClass::draw(uint32_t& imageIndex) {
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	
-	VkSemaphore waitSemaphores[] = { computeFinishedSemaphore, imageAvailableSemaphore[imageIndex]};
-	VkSemaphore signalSemaphores[] = { renderFinishedSempahore[imageIndex]};
+
+	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore[imageIndex] };
+	VkSemaphore signalSemaphores[] = { renderFinishedSempahore[imageIndex] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	submitInfo.waitSemaphoreCount = 2;
+	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
@@ -1300,7 +1300,7 @@ void VulkanClass::draw(uint32_t& imageIndex) {
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
-	
+
 	VkSwapchainKHR swapChains[] = { swapChain.__swapChain };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapChains;
@@ -1308,7 +1308,7 @@ void VulkanClass::draw(uint32_t& imageIndex) {
 
 	result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||framebufferResized) {
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
 		framebufferResized = false;
 		recreateSwapChain();
 	}
@@ -1362,7 +1362,7 @@ void VulkanClass::initImGui() {
 	imguiCmdBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	imguiCmdBufferInfo.commandPool = commandPool;
 	imguiCmdBufferInfo.commandBufferCount = 1;
-	
+
 	vkAllocateCommandBuffers(logicalDevice, &imguiCmdBufferInfo, &commandBuffer);
 
 	ImGui_ImplVulkan_Init(&init_info, renderPass);
@@ -1425,7 +1425,7 @@ void VulkanClass::loadModel() {
 	float max = 0;
 
 	for (const auto& shape : shapes) {
-		int i = 0; 
+		int i = 0;
 		Triangle triangle{};
 		for (const auto& index : shape.mesh.indices) {
 			Vertex vertex{};
@@ -1480,17 +1480,15 @@ void VulkanClass::loadModel() {
 	extents.zMax = maxZ;
 	extents.zMin = minZ;
 
-
-
 	int x = (maxX - minX) / 10.0;
 	int y = (maxY - minY) / 10.0;
 	int z = (maxZ - minZ) / 10.0;
 
 	ampVolumeSize = (x * y * z);
 
-	ampVolume = (AmpVolume*) malloc(ampVolumeSize * sizeof(AmpVolume));
+	ampVolume = (AmpVolume*)malloc(ampVolumeSize * sizeof(AmpVolume));
 
-	std::cout << "AMPLITUDE VOLUME SIZE - " << (maxX - minX)/10.0 << " X " << (maxY - minY)/10.0 << " X " << (maxZ - minZ)/10.0 << " = " << ampVolumeSize << "\n";
+	std::cout << "AMPLITUDE VOLUME SIZE - " << (maxX - minX) / 10.0 << " X " << (maxY - minY) / 10.0 << " X " << (maxZ - minZ) / 10.0 << " = " << ampVolumeSize << "\n";
 
 	srand(glfwGetTime());
 
@@ -1511,9 +1509,9 @@ void VulkanClass::loadModel() {
 
 	for (unsigned int i = 0; i < x; i++) {
 		for (unsigned int j = 0; j < y; j++) {
-			for (unsigned int k = 0; k < z; k ++) {
-				int yStride = int(maxX-minX)/10;
-				int zStride = (int(maxY-minY)/10) * (int(maxX-minX)/10);
+			for (unsigned int k = 0; k < z; k++) {
+				int yStride = int(maxX - minX) / 10;
+				int zStride = (int(maxY - minY) / 10) * (int(maxX - minX) / 10);
 				index = i + j * yStride + k * zStride;
 				int factor = ampVolumeSize / 100;
 				if (index >= 0 && index < ampVolumeSize) {
@@ -1613,15 +1611,15 @@ void VulkanClass::createOctree() {
 	midpoints.push_back(std::vector<float>({ extents.yMin, extents.yMax }));
 	midpoints.push_back(std::vector<float>({ extents.zMin, extents.zMax }));
 
-	for (int i = 0; i < 3; i++)	{
+	for (int i = 0; i < 3; i++) {
 		int head = 0;
-		midpoints[i].insert(midpoints[i].begin() + 1, (midpoints[i][head] + midpoints[i][midpoints[i].size()-1]) / 2.0);
-		midpoints[i].insert(midpoints[i].begin() + 1, (midpoints[i][head] + midpoints[i][head+1]) / 2.0);
-		midpoints[i].insert(midpoints[i].end() - 1, (midpoints[i][midpoints[i].size()-2] + midpoints[i][midpoints[i].size()-1]) / 2.0);
-		midpoints[i].insert(midpoints[i].begin() + 1, (midpoints[i][head] + midpoints[i][head+1]) / 2.0);
-		midpoints[i].insert(midpoints[i].begin() + 3 , (midpoints[i][head+2] + midpoints[i][head+3]) / 2.0);
-		midpoints[i].insert(midpoints[i].end() - 1 , (midpoints[i][midpoints[i].size()-2] + midpoints[i][midpoints[i].size()-1]) / 2.0);
-		midpoints[i].insert(midpoints[i].end() - 3 , (midpoints[i][midpoints[i].size()-4] + midpoints[i][midpoints[i].size()-3]) / 2.0);
+		midpoints[i].insert(midpoints[i].begin() + 1, (midpoints[i][head] + midpoints[i][midpoints[i].size() - 1]) / 2.0);
+		midpoints[i].insert(midpoints[i].begin() + 1, (midpoints[i][head] + midpoints[i][head + 1]) / 2.0);
+		midpoints[i].insert(midpoints[i].end() - 1, (midpoints[i][midpoints[i].size() - 2] + midpoints[i][midpoints[i].size() - 1]) / 2.0);
+		midpoints[i].insert(midpoints[i].begin() + 1, (midpoints[i][head] + midpoints[i][head + 1]) / 2.0);
+		midpoints[i].insert(midpoints[i].begin() + 3, (midpoints[i][head + 2] + midpoints[i][head + 3]) / 2.0);
+		midpoints[i].insert(midpoints[i].end() - 1, (midpoints[i][midpoints[i].size() - 2] + midpoints[i][midpoints[i].size() - 1]) / 2.0);
+		midpoints[i].insert(midpoints[i].end() - 3, (midpoints[i][midpoints[i].size() - 4] + midpoints[i][midpoints[i].size() - 3]) / 2.0);
 
 		for (int j = 0; j < midpoints[i].size(); j++) {
 			midpointsGPU.push_back(midpoints[i][j]);
@@ -1634,7 +1632,7 @@ void VulkanClass::createOctree() {
 
 		for (unsigned int j = 0; j < 3; j++) {
 			float coord = triangles[i].vertices[0].pos[j];
-			for (unsigned int k = 0; k < midpoints[j].size()-1; k++) {
+			for (unsigned int k = 0; k < midpoints[j].size() - 1; k++) {
 				if (coord > midpoints[j][k] && coord < midpoints[j][k + 1]) {
 					Index[j] = k;
 				}
@@ -1708,7 +1706,7 @@ void VulkanClass::createAuxilaryOctreeBuffers() {
 	}
 
 	vkGetBufferMemoryRequirements(logicalDevice, sizesBuffer, &memRequirements);
-	
+
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -1761,7 +1759,7 @@ void VulkanClass::createIndexBuffer() {
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
-	
+
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -1814,8 +1812,8 @@ void VulkanClass::createIndexBuffer() {
 
 void VulkanClass::createAmpBuffer() {
 
-	VkDeviceSize bufferSize = sizeof(AmpVolume)*ampVolumeSize;
-	
+	VkDeviceSize bufferSize = sizeof(AmpVolume) * ampVolumeSize;
+
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 
@@ -1875,7 +1873,7 @@ void VulkanClass::createAmpBuffer() {
 
 void VulkanClass::validateAmpBuffer() {
 
-	VkDeviceSize bufferSize = sizeof(AmpVolume)* ampVolumeSize;
+	VkDeviceSize bufferSize = sizeof(AmpVolume) * ampVolumeSize;
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -1912,7 +1910,7 @@ void VulkanClass::validateAmpBuffer() {
 
 	std::cout << midpointsGPU[0] << "\n";
 
-	std::vector<AmpVolume> ampBufferVector(ampBufferValidation, ampBufferValidation+ampVolumeSize);
+	std::vector<AmpVolume> ampBufferVector(ampBufferValidation, ampBufferValidation + ampVolumeSize);
 
 	int SumVoxels = 0;
 	for (unsigned int i = 0; i < ampVolumeSize; i++) {

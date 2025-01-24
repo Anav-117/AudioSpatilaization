@@ -9,7 +9,7 @@ namespace win {
 }
 
 namespace camera {
-	glm::vec3 pos = glm::vec3(0.0f, 0.0f, -1.0f);
+	glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 fwd = glm::vec3(0.0f, 0.0f, 1.0f);
 	glm::vec3 right;
 	glm::vec3 up;
@@ -86,14 +86,20 @@ void windowResizeCallback(GLFWwindow* window, int width, int height) {
 
 }
 
+bool first = true;
+
 void display() {
 
 	vkWaitForFences(vk->getLogicalDevice(), 1, &vk->inFlightFence[hostSwapChain::currentFrame], VK_TRUE, UINT32_MAX);
 
-	vk->dispatch();
+	if (vk->first) {
+		vk->dispatch();
 
-	vkWaitForFences(vk->getLogicalDevice(), 1, &vk->computeInFlightFence, VK_TRUE, UINT64_MAX);
+		vkWaitForFences(vk->getLogicalDevice(), 1, &vk->computeInFlightFence, VK_TRUE, UINT64_MAX);
 
+		vk->first = false;
+	}
+	
 	//vk->validateAmpBuffer();
 
 	vk->draw(hostSwapChain::currentFrame);
