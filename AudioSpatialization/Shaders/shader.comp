@@ -63,6 +63,7 @@ Triangle ClosestTriangle;
 vec3 startPos;
 vec3 rayDir;
 float Collision_t;
+int sourceFound = 0;
 
 float perpDist(vec3 p1, vec3 p2, vec3 cell) {
 	vec3 AB = p2-p1;
@@ -167,6 +168,8 @@ int Collision(vec3 start, vec3 end, ivec3 ID) {
 		SizeBefore += int(sizes[i]);
 	}
 
+	int triangle = 0;
+
 	for (int i = SizeBefore-1; i < SizeBefore+Size; i++) {
 		Triangle T = triangles[i];
 
@@ -195,16 +198,20 @@ int Collision(vec3 start, vec3 end, ivec3 ID) {
 			if (length(Centroid - start) < ClosestDepth) {
 				ClosestDepth = length(Centroid - start);
 				ClosestTriangle = T;
-				startPos = startPos + t * rayDir;
-				vec3 normal = (T.vertices[0].normal.xyz + T.vertices[1].normal.xyz + T.vertices[2].normal.xyz)/3.0;
-				rayDir = reflect(rayDir, normal);
+				vec3 CollisionPoint = startPos + t * rayDir;
+				vec3 incident = normalize(CollisionPoint - startPos);
+				vec3 normal = normalize(T.vertices[0].normal.xyz + T.vertices[1].normal.xyz + T.vertices[2].normal.xyz)/3.0;
+
+				startPos = CollisionPoint;
+				rayDir = normalize(reflect(incident, normal));
+
+				triangle = i;
 			}
-			return i;
 		}
 
 	}
 
-	return 0;
+	return triangle;
 }
 
 ivec3 getCellID(vec3 pos) {
@@ -325,6 +332,7 @@ int traverseOctree(vec3 rayOrigin, vec3 rayDir, vec3 sourcePos) {
 	}
 
 	if (sourceCollision == 1) {
+		sourceFound = 1;
 		return 0;
 	}
 
@@ -342,13 +350,20 @@ void main() {
 
 	ClosestDepth = length(sourcePos - ampPos);
 
-	float visibility = 1.0;
+	float visibility = 0.0;
 
 	startPos = ampPos;
+	float TransmittanceFactor = 1.0;
 
-	for (int i=0; i<1; i++) {
+	for (int i=0; i<2; i++) {
 		
-		visibility -= traverseOctree(startPos, rayDir, sourcePos);
+		visibility += TransmittanceFactor * (1.0 - traverseOctree(startPos, rayDir, sourcePos));
+		if (sourceFound == 1) {
+			break;
+		}
+
+		TransmittanceFactor /= 2.0*float(i+2);
+		ClosestDepth = 10000;
 	
 	}
 
