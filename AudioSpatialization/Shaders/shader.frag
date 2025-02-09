@@ -72,7 +72,7 @@ void main() {
 
         int index = int(modifiedSample.x + modifiedSample.y*yStride + modifiedSample.z*zStride);
 
-        accum += ampIn[index].amp;
+        accum += ampIn[index].amp/10.0;
 
         if (ampIn[index].amp > 0) {
             insideVol = 1;
@@ -98,16 +98,19 @@ void main() {
 
     finalColor = mix(vec4(diffuse*modelColor, 1.0), vec4(1.0, 0.0, 0.0, 1.0), accum);
 
-    vec3 modifiedSample = (pos + vec3(minX, minY, minZ))/10.0 - vec3(1.0);
+    vec3 modifiedSample = (pos + vec3(minX, minY, minZ))/10.0;
 
-    int index = int(int(modifiedSample.x) + int(modifiedSample.y)*yStride + int(modifiedSample.z)*zStride);
+    int index = int(int(modifiedSample.x) + int(modifiedSample.y)*xExtent + int(modifiedSample.z)*xExtent * yExtent);
 
     float posAmp = (ampIn[index].amp);
 
-    vec4 overlay = mix(vec4(0.0, 0.0, 0.0, 1.0), vec4(1.0, 0.0, 0.0, 1.0), posAmp);
+    vec4 overlay = mix(vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), posAmp);
+    if (posAmp < 0) {
+        overlay = vec4(0.0, 0.0, 1.0, 1.0);
+    }
 
-    outColor = overlay;
+    outColor = vec4(vec3(diffuse), 1.0) * overlay;
 
-    //outColor = vec4(vec3(accum), 1.0);
+    //outColor = finalColor;
 
 }

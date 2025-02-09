@@ -28,8 +28,16 @@ struct Transform {
 };
 
 struct Vertex {
-	glm::vec3 pos;
-	glm::vec3 normal;
+	glm::vec4 pos;
+	glm::vec4 normal;
+
+	bool operator == (Vertex v) {
+		if (v.pos == pos && v.normal == normal) {
+			return true;
+		}
+
+		return false;
+	}
 };
 
 struct ModelExtent {
@@ -45,7 +53,19 @@ struct ModelExtent {
 
 struct Triangle {
 	Vertex vertices[3];
+
+	bool operator == (Triangle t) {
+		
+		for (int i = 0; i < 3; i++) {
+			if (t.vertices[i] != vertices[i]) {
+				return false;
+			}
+		}
+
+		return true;
+	}
 };
+
 
 struct QueueFamily {
 

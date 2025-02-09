@@ -732,6 +732,9 @@ void VulkanClass::createPosDescriptorSet() {
 	bufferInfo.offset = 0;
 	bufferInfo.range = sizeof(Triangle) * triangles.size();
 
+	int floatSize = sizeof(float);
+	int size = sizeof(Triangle);
+
 	VkWriteDescriptorSet ampWrite{};
 	ampWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	ampWrite.dstSet = posDescriptorSet;
@@ -944,7 +947,7 @@ void VulkanClass::createGraphicsPipeline() {
 	rasterInfo.rasterizerDiscardEnable = VK_FALSE;
 	rasterInfo.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterInfo.lineWidth = 3.0f;
-	rasterInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterInfo.cullMode = VK_CULL_MODE_NONE;
 	rasterInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterInfo.depthBiasEnable = VK_FALSE;
 
@@ -1104,7 +1107,7 @@ void VulkanClass::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
 	std::vector<VkDescriptorSet> descriptorSets = { ampDescriptorSet, posDescriptorSet, midpointsDescriptorSet, sizesDescriptorSet, transformDescriptorSet[0] };
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, 0);
 
-	vkCmdDispatch(commandBuffer, 372, 155, 228);
+	vkCmdDispatch(commandBuffer, 186, 155, 228);
 
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to Record Compute Command Buffer\n");
@@ -1423,6 +1426,7 @@ void VulkanClass::loadModel() {
 	}
 
 	float max = 0;
+	float count = 0;
 
 	for (const auto& shape : shapes) {
 		int i = 0;
@@ -1433,7 +1437,8 @@ void VulkanClass::loadModel() {
 			vertex.pos = {
 				attrib.vertices[3 * index.vertex_index + 0],
 				-attrib.vertices[3 * index.vertex_index + 1],
-				attrib.vertices[3 * index.vertex_index + 2]
+				attrib.vertices[3 * index.vertex_index + 2],
+				0.0
 			};
 
 			if (vertex.pos.x > maxX)
@@ -1452,7 +1457,8 @@ void VulkanClass::loadModel() {
 			vertex.normal = {
 				attrib.normals[3 * index.normal_index + 0],
 				attrib.normals[3 * index.normal_index + 1],
-				attrib.normals[3 * index.normal_index + 2]
+				attrib.normals[3 * index.normal_index + 2],
+				0.0
 			};
 
 			vertices.push_back(vertex);
@@ -1463,11 +1469,11 @@ void VulkanClass::loadModel() {
 			if (i == 2) {
 				triangles.push_back(triangle);
 				i = 0;
+				count++;
 			}
 			else {
 				i++;
 			}
-
 		}
 	}
 
@@ -1495,10 +1501,7 @@ void VulkanClass::loadModel() {
 	float densities[101];
 
 	for (unsigned int i = 0; i < 101; i++) {
-		if (i < 50)
-			densities[i] = 0.0f; // ((float)rand() / RAND_MAX > 0.5) ? 0.1 : 0.0;
-		else
-			densities[i] = 0.0f;
+		densities[i] = -1.0f;
 	}
 
 	/*for (unsigned int i = 0; i < ampVolumeSize; i++) {
@@ -1520,13 +1523,6 @@ void VulkanClass::loadModel() {
 			}
 		}
 	}
-
-	for (unsigned int i = 0; i < ampVolumeSize; i++) {
-		if (ampVolume[i].amp > 0.0) {
-			throw(std::runtime_error("BAD VALUE"));
-		}
-	}
-
 }
 
 void VulkanClass::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
@@ -1628,19 +1624,21 @@ void VulkanClass::createOctree() {
 
 	for (unsigned int i = 0; i < triangles.size(); i++) {
 
-		unsigned int Index[3];
-
-		for (unsigned int j = 0; j < 3; j++) {
-			float coord = triangles[i].vertices[0].pos[j];
-			for (unsigned int k = 0; k < midpoints[j].size() - 1; k++) {
-				if (coord > midpoints[j][k] && coord < midpoints[j][k + 1]) {
-					Index[j] = k;
+		for (unsigned int l = 0; l < 3; l++) {
+			unsigned int Index[3] = {0, 0, 0};
+			for (unsigned int j = 0; j < 3; j++) {
+				float coord = triangles[i].vertices[l].pos[j];
+				for (unsigned int k = 0; k < midpoints[j].size() - 1; k++) {
+					if (coord > midpoints[j][k] && coord < midpoints[j][k + 1]) {
+						Index[j] = k;
+					}
 				}
 			}
-		}
 
-		unsigned int flattenedIndex = Index[0] + 8 * Index[1] + 64 * Index[2];
-		octree[flattenedIndex].push_back(triangles[i]);
+			unsigned int flattenedIndex = Index[0] + 8 * Index[1] + 64 * Index[2];
+			if (std::find(octree[flattenedIndex].begin(), octree[flattenedIndex].end(), triangles[i]) == octree[flattenedIndex].end())
+				octree[flattenedIndex].push_back(triangles[i]);
+		}
 
 	}
 
@@ -1912,14 +1910,34 @@ void VulkanClass::validateAmpBuffer() {
 
 	std::vector<AmpVolume> ampBufferVector(ampBufferValidation, ampBufferValidation + ampVolumeSize);
 
-	int SumVoxels = 0;
+	float max = 0;
+	float min = 1;
+	std::vector<float> count;
+
 	for (unsigned int i = 0; i < ampVolumeSize; i++) {
-		if (ampBufferVector[i].amp > 0.1) {
-			SumVoxels++;
+		if (ampBufferVector[i].amp > max) {
+			max = ampBufferVector[i].amp;
+		}
+		if (ampBufferVector[i].amp < min) {
+			min = ampBufferVector[i].amp;
 		}
 	}
 
-	std::cout << SumVoxels << "\n";
+	std::cout << triangles[0].vertices[2].pos.z;
+	std::cout << triangles[2].vertices[0].pos.z;
+
+	std::cout << max << "\n";
+	std::cout << min << "\n";
+
+	for (unsigned int i = 0; i < ampVolumeSize; i++) {
+		if (ampBufferVector[i].amp > 0) {
+			if (find(count.begin(), count.end(), ampBufferVector[i].amp) == count.end()) {
+				count.push_back(ampBufferVector[i].amp);
+			}
+		}
+	}
+
+	std::cout << count.size() << "\n";
 
 	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);

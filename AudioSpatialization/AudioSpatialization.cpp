@@ -9,7 +9,15 @@ namespace win {
 }
 
 namespace camera {
-	glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f);
+	float xExtent = 3720;
+	float yExtent = 1550;
+	float zExtent = 2280;
+
+	float minX = 1920.95;
+	float minY = 1429.43;
+	float minZ = 1182.81;
+
+	glm::vec3 pos = (glm::vec3(xExtent, yExtent, zExtent) / glm::vec3(2.0) - glm::vec3(minX, minY, minZ)) * glm::vec3(0.005);// glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 fwd = glm::vec3(0.0f, 0.0f, 1.0f);
 	glm::vec3 right;
 	glm::vec3 up;
@@ -98,9 +106,9 @@ void display() {
 		vkWaitForFences(vk->getLogicalDevice(), 1, &vk->computeInFlightFence, VK_TRUE, UINT64_MAX);
 
 		vk->first = false;
+
+		//vk->validateAmpBuffer();
 	}
-	
-	//vk->validateAmpBuffer();
 
 	vk->draw(hostSwapChain::currentFrame);
 

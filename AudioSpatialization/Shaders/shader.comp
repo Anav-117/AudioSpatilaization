@@ -7,13 +7,22 @@ struct Amplitude {
 };
 
 struct Vertex {
-	vec3 pos;
-	vec3 normal;
+	vec4 pos;
+	vec4 normal;
 };
 
 struct Triangle {
 	Vertex vertices[3];
 };
+
+struct OctreeNode {
+	vec3 Low;
+	vec3 High;
+};
+
+struct Octree {
+	OctreeNode elements[512];
+}octree;
 
 layout(std430, set = 0, binding = 0) buffer AmpVolume {
    Amplitude ampVolume[ ];
@@ -49,6 +58,12 @@ float minX = 1920.95;
 float minY = 1429.43;
 float minZ = 1182.81;
 
+float ClosestDepth;
+Triangle ClosestTriangle;
+vec3 startPos;
+vec3 rayDir;
+float Collision_t;
+
 float perpDist(vec3 p1, vec3 p2, vec3 cell) {
 	vec3 AB = p2-p1;
 	vec3 AP = cell-p1;
@@ -64,7 +79,7 @@ float fraction(float num) {
 }
 
 float rand(vec3 co){
-    return (fraction(sin(dot(co, vec3(12.9898, 78.233, 103.5392))) * 43758.5453));
+    return ((abs(fraction(sin(dot(co, vec3(12.9898, 78.233, 103.5392))) * 43758.5453))/2.0)+0.5);
 }
 
 vec3 randVec3(vec3 co) {
@@ -84,20 +99,26 @@ vec3 randomSpherePoint(vec3 rand) {
   return normalize(vec3(x, y, z));
 }
 
-int rayTriangleIntersection (vec3 start, vec3 end, Triangle T) {
+float rayTriangleIntersection (vec3 start, vec3 end, Triangle T) {
 
-	vec3 edge1 = T.vertices[1].pos - T.vertices[0].pos;
-	vec3 edge2 = T.vertices[2].pos - T.vertices[0].pos;
+    vec3 edge1 = T.vertices[1].pos.xyz - T.vertices[0].pos.xyz;
+	vec3 edge2 = T.vertices[2].pos.xyz - T.vertices[0].pos.xyz;
 	vec3 ray_vector = end - start;
 	vec3 ray_cross_e2 = cross(ray_vector, edge2);
 	float det = dot(edge1, ray_cross_e2);
+
+	vec3 Normal = normalize((T.vertices[0].normal.xyz + T.vertices[1].normal.xyz + T.vertices[2].normal.xyz)/3.0);
 
 	if (det > -0.000001 && det < 0.000001) {
 		return 0;
 	}
 
+	if(dot(Normal, normalize(ray_vector)) > 0) {
+		return 0;
+	}
+
 	float inv_det = 1.0/det;
-	vec3 s = start - T.vertices[0].pos;
+	vec3 s = start - T.vertices[0].pos.xyz;
 	float u = inv_det * dot(s, ray_cross_e2);
 
 	if ((u < 0 && abs(u) > 0.000001) || (u > 1 && abs(u-1) > 0.000001))
@@ -112,27 +133,34 @@ int rayTriangleIntersection (vec3 start, vec3 end, Triangle T) {
 	float t = inv_det * dot(edge2, s_cross_e1);
 	float segmentLength = length(end - start);
 
-    if (t < 0.0 || t > segmentLength) 
+    if (t < 0.0) 
     {
         return 0;
     }
     
-    return 1;
+	Collision_t = t;
+
+    return t;
+
+}
+
+ivec3 getAmpCellID(vec3 pos) {
+	ivec3 cellID;
+
+	cellID = ivec3(pos/10.0);
+	
+	return cellID;
 }
 
 int Collision(vec3 start, vec3 end, ivec3 ID) {
 
 	int flatID = ID.x + ID.y * 8 + ID.z * 64;
 
-	if (ID == ivec3(gl_GlobalInvocationID)) {
-		return -1;
-	}
-
 	int SizeBefore = 0;
 	int Size = int(sizes[flatID]);
 
 	if (Size == 0) {
-		return -2;
+		return 0;
 	}
 
 	for (uint i=0; i<flatID; i++) {
@@ -142,7 +170,35 @@ int Collision(vec3 start, vec3 end, ivec3 ID) {
 	for (int i = SizeBefore-1; i < SizeBefore+Size; i++) {
 		Triangle T = triangles[i];
 
-		if (rayTriangleIntersection (start, end, T) == 1) {
+		vec3 Centroid = (T.vertices[0].pos.xyz + T.vertices[1].pos.xyz + T.vertices[2].pos.xyz)/3.0;
+
+		if (length(Centroid - start) > length(end - start)) {
+			continue;
+		}
+
+		if (getAmpCellID(Centroid + vec3(minX, minY, minZ)) == ivec3(gl_GlobalInvocationID.xyz)) {
+			continue;
+		}
+		if (getAmpCellID(T.vertices[0].pos.xyz + vec3(minX, minY, minZ)) == ivec3(gl_GlobalInvocationID.xyz)) {
+			continue;
+		}
+		if (getAmpCellID(T.vertices[1].pos.xyz + vec3(minX, minY, minZ)) == ivec3(gl_GlobalInvocationID.xyz)) {
+			continue;
+		}
+		if (getAmpCellID(T.vertices[2].pos.xyz + vec3(minX, minY, minZ)) == ivec3(gl_GlobalInvocationID.xyz)) {
+			continue;
+		}
+
+		float t = rayTriangleIntersection (start, end, T);
+
+		if (t > 0) {
+			if (length(Centroid - start) < ClosestDepth) {
+				ClosestDepth = length(Centroid - start);
+				ClosestTriangle = T;
+				startPos = startPos + t * rayDir;
+				vec3 normal = (T.vertices[0].normal.xyz + T.vertices[1].normal.xyz + T.vertices[2].normal.xyz)/3.0;
+				rayDir = reflect(rayDir, normal);
+			}
 			return i;
 		}
 
@@ -159,6 +215,7 @@ ivec3 getCellID(vec3 pos) {
 	return cellID;
 }
 
+
 int checkModelExtent(vec3 pos) {
 	
 	if (pos.x > float(xExtent)*10.0-minX || pos.x < -minX) {
@@ -174,63 +231,129 @@ int checkModelExtent(vec3 pos) {
 	return 0;
 }
 
-void main() {
-	
-	sourcePos = vec3(xExtent, yExtent, zExtent) * 5.0 - vec3(minX, minY, minZ);
+int rayBoxIntersection(vec3 Low, vec3 High, vec3 rayOrigin, vec3 rayDir) {
 
-	ivec3 sourceCell = getCellID(sourcePos);
+	vec3 tmin, tmax;
 
-	vec3 rayPos = vec3(gl_GlobalInvocationID) * 10.0 - vec3(minX, minY, minZ) + vec3(5.0);
+	tmin = (Low - rayOrigin)/rayDir;
+	tmax = (High - rayOrigin)/rayDir;
 
-	vec3 accum = vec3(0);
+	vec3 tclose, tfar;
 
-	for (int i=0; i<1; i++) {
+	tclose.x = min(tmin.x, tmax.x);
+	tfar.x = max(tmin.x, tmax.x);
+	tclose.y = min(tmin.y, tmax.y);
+	tfar.y = max(tmin.y, tmax.y);
+	tclose.z = min(tmin.z, tmax.z);
+	tfar.z = max(tmin.z, tmax.z);
 
-		int depth = 0;	
+	float t_close = max(tclose.x, max(tclose.y, tclose.z));
+	float t_far = min(tfar.x, min(tfar.y, tfar.z));
 
-		vec3 rayDir = normalize((sourcePos - rayPos));// + randomSpherePoint(randVec3(vec3(i, i*27, i+30))));
+	if (t_close <= t_far && t_far > 0) {
+		return 1;
+	}
 
-		ivec3 currentCell = ivec3(getCellID(rayPos + vec3(minX, minY, minZ)));
+	return 0;
+}
 
-		while (checkModelExtent(rayPos) == 0 && depth < 1000) {
+int traverseOctree(vec3 rayOrigin, vec3 rayDir, vec3 sourcePos) {
 
-			ivec3 cellID = getCellID(rayPos + vec3(minX, minY, minZ));
+	vec3 globalMin = -1 * vec3(minX, minY, minZ);
+	vec3 globalMax = vec3(xExtent, yExtent, zExtent)*10.0 - vec3(minX, minY, minZ);
 
-			if (cellID == currentCell) {
-				depth++;
-				rayPos = rayPos + 10.0*rayDir;
+	vec3 Extent = vec3(xExtent, yExtent, zExtent)*10.0;
+
+	int sourceCollision = 0;
+
+	for (int i=0 ; i<8; i++) {
+		vec3 depth_1_min;
+		vec3 depth_1_max;
+
+		depth_1_min.x = globalMin.x + (i%2) * Extent.x/2.0;
+		depth_1_min.y = globalMin.y + ((int(i/2))%2) * Extent.y/2.0;
+		depth_1_min.z = globalMin.z + (int(i/4)%2) * Extent.z/2.0;
+
+		depth_1_max = depth_1_min + Extent/2.0;
+
+		if (rayBoxIntersection(depth_1_min, depth_1_max, rayOrigin, rayDir) == 0) {
+			continue;
+		}
+
+		for (int j=0; j<8; j++) {
+			vec3 depth_2_min;
+			vec3 depth_2_max;
+
+			depth_2_min.x = depth_1_min.x + (j%2) * Extent.x/4.0;
+			depth_2_min.y = depth_1_min.y + ((int(j/2))%2) * Extent.y/4.0;
+			depth_2_min.z = depth_1_min.z + (int(j/4)%2) * Extent.z/4.0;
+
+			depth_2_max = depth_2_min + Extent/4.0;
+
+			if (rayBoxIntersection(depth_2_min, depth_2_max, rayOrigin, rayDir) == 0) {
 				continue;
 			}
-			else {
-				currentCell = cellID;
-			}
 
-			int collide = Collision(rayPos, sourcePos, cellID);
+			for (int k=0; k<8; k++) {
+				vec3 depth_3_min;
+				vec3 depth_3_max;
 
-			if (collide > 0) {
+				depth_3_min.x = depth_2_min.x + (k%2) * Extent.x/8.0;
+				depth_3_min.y = depth_2_min.y + ((int(k/2))%2) * Extent.y/8.0;
+				depth_3_min.z = depth_2_min.z + (int(k/4)%2) * Extent.z/8.0;
+
+				depth_3_max = depth_3_min + Extent/8.0;
 				
-				ivec3 ampCellID = ivec3(gl_GlobalInvocationID);
-				int ampFlatID = ampCellID.x + ampCellID.y * xExtent + ampCellID.z * xExtent * yExtent;
+				if (rayBoxIntersection(depth_3_min, depth_3_max, rayOrigin, rayDir) == 1) {
+					
+					vec3 cellMid = (depth_3_min + depth_3_max)/2.0 + vec3(minX, minY, minZ);
 
-				ampVolume[ampFlatID].amp = 0;
+					ivec3 cellID = getCellID(cellMid);
 
-				break;
+					if (cellID == getCellID(sourcePos + vec3(minX, minY, minZ))) {
+						sourceCollision = 1;
+					}
+
+					int collided = Collision(rayOrigin, sourcePos, cellID);
+
+					if (collided > 0) {
+						return 1;
+					}
+				}
 			}
-
-			if (length(sourcePos - rayPos) < 1.0) {
-
-				ivec3 ampCellID = ivec3(gl_GlobalInvocationID);
-				int ampFlatID = ampCellID.x + ampCellID.y * xExtent + ampCellID.z * xExtent * yExtent;
-
-				ampVolume[ampFlatID].amp = 1.0;
-
-				break;
-
-			}
-			depth++;
-
-			rayPos = rayPos + 1.0*rayDir;
-
 		}
 	}
+
+	if (sourceCollision == 1) {
+		return 0;
+	}
+
+	return 0;
+
+}
+
+void main() {
+
+	vec3 sourcePos = (vec3(xExtent, yExtent, zExtent)*10.0)/2.0 - vec3(minX, minY, minZ) + vec3(5.0);
+
+	vec3 ampPos = vec3(gl_GlobalInvocationID) * 10.0 + vec3(5.0) - vec3(minX, minY, minZ);
+
+	rayDir = normalize(sourcePos - ampPos);
+
+	ClosestDepth = length(sourcePos - ampPos);
+
+	float visibility = 1.0;
+
+	startPos = ampPos;
+
+	for (int i=0; i<1; i++) {
+		
+		visibility -= traverseOctree(startPos, rayDir, sourcePos);
+	
+	}
+
+	ivec3 ampCellID = ivec3(gl_GlobalInvocationID);
+	int ampFlatID = ampCellID.x + ampCellID.y * xExtent + ampCellID.z * xExtent * yExtent;
+	ampVolume[ampFlatID].amp = visibility;
+
 }
