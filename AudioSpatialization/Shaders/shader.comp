@@ -54,6 +54,8 @@ int xExtent = 372;
 int yExtent = 155;
 int zExtent = 228;
 
+float visibilityVolume[372*155*228];
+
 float minX = 1920.95;
 float minY = 1429.43;
 float minZ = 1182.81;
@@ -80,7 +82,7 @@ float fraction(float num) {
 }
 
 float rand(vec3 co){
-    return ((abs(fraction(sin(dot(co, vec3(12.9898, 78.233, 103.5392))) * 43758.5453))/2.0)+0.5);
+    return ((fraction(sin(dot(co, vec3(12.9898, 78.233, 103.5392))) * 43758.5453)* 2.0) - 1.0);
 }
 
 vec3 randVec3(vec3 co) {
@@ -198,12 +200,6 @@ int Collision(vec3 start, vec3 end, ivec3 ID) {
 			if (length(Centroid - start) < ClosestDepth) {
 				ClosestDepth = length(Centroid - start);
 				ClosestTriangle = T;
-				vec3 CollisionPoint = startPos + t * rayDir;
-				vec3 incident = normalize(CollisionPoint - startPos);
-				vec3 normal = normalize(T.vertices[0].normal.xyz + T.vertices[1].normal.xyz + T.vertices[2].normal.xyz)/3.0;
-
-				startPos = CollisionPoint;
-				rayDir = normalize(reflect(incident, normal));
 
 				triangle = i;
 			}
@@ -336,7 +332,7 @@ int traverseOctree(vec3 rayOrigin, vec3 rayDir, vec3 sourcePos) {
 		return 0;
 	}
 
-	return 0;
+	return 1;
 
 }
 
@@ -353,22 +349,48 @@ void main() {
 	float visibility = 0.0;
 
 	startPos = ampPos;
-	float TransmittanceFactor = 1.0;
 
-	for (int i=0; i<2; i++) {
-		
-		visibility += TransmittanceFactor * (1.0 - traverseOctree(startPos, rayDir, sourcePos));
-		if (sourceFound == 1) {
-			break;
-		}
-
-		TransmittanceFactor /= 2.0*float(i+2);
-		ClosestDepth = 10000;
-	
-	}
+	visibility = (1.0 - traverseOctree(startPos, rayDir, sourcePos));
 
 	ivec3 ampCellID = ivec3(gl_GlobalInvocationID);
 	int ampFlatID = ampCellID.x + ampCellID.y * xExtent + ampCellID.z * xExtent * yExtent;
-	ampVolume[ampFlatID].amp = visibility;
+	//ampVolume[ampFlatID].amp = visibility;
+	visibilityVolume[ampFlatID] = visibility;
+
+	barrier();
+
+	if (visibility == 1.0) {
+		ampVolume[ampFlatID].amp = 1.0;
+		return;
+	}
+
+	float power = 0;
+
+	float TransmittanceFactor = 1.0;
+
+	rayDir = normalize(sourcePos - startPos);
+
+	for (int ray = 1; ray <= 5; ray++) {
+	
+		//rayDir = normalize(sourcePos - startPos);
+		rayDir = normalize(randomSpherePoint(randVec3(vec3(ray, ray + 1, ray + 2))));
+
+		for (int depth = 0; depth < 5; depth++) {
+			traverseOctree(startPos, rayDir, sourcePos);
+
+			vec3 CollisionPoint = startPos + ClosestDepth * rayDir;
+			ivec3 ampCollision = getAmpCellID(CollisionPoint + vec3(minX, minY, minZ));
+			int ampID = ampCollision.x + ampCollision.y * xExtent + ampCollision.z * xExtent * yExtent;
+			power += visibilityVolume[ampID] / pow(2, depth);
+			vec3 incident = normalize(CollisionPoint - startPos);
+			vec3 normal = normalize(ClosestTriangle.vertices[0].normal.xyz + ClosestTriangle.vertices[1].normal.xyz + ClosestTriangle.vertices[2].normal.xyz)/3.0;
+
+			startPos = CollisionPoint;
+			rayDir = normalize(reflect(incident, normal));
+		}
+
+	}
+
+	ampVolume[ampFlatID].amp = power;
 
 }
