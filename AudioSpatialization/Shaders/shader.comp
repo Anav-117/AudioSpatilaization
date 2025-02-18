@@ -67,6 +67,8 @@ vec3 rayDir;
 float Collision_t;
 int sourceFound = 0;
 
+float diffractedPower = 0.0;
+
 float perpDist(vec3 p1, vec3 p2, vec3 cell) {
 	vec3 AB = p2-p1;
 	vec3 AP = cell-p1;
@@ -207,6 +209,30 @@ int Collision(vec3 start, vec3 end, ivec3 ID) {
 
 	}
 
+	vec3 CollisionPoint = startPos + ClosestDepth * rayDir;
+	ivec3 CollidedTriangleAmpCell = getAmpCellID(CollisionPoint + vec3(minX, minY, minZ));
+	vec3 searchCenter = vec3(CollidedTriangleAmpCell * 10.0 - vec3(minX, minY, minZ)) + vec3(5.0);
+
+	float area = 10*10;
+	float coveredArea = 0;
+
+	for (int i = SizeBefore-1; i < SizeBefore+Size; i++) {
+		Triangle T = triangles[i];
+		vec3 Centroid = (T.vertices[0].pos.xyz + T.vertices[1].pos.xyz + T.vertices[2].pos.xyz)/3.0;
+		vec3 Normal = (T.vertices[0].normal.xyz + T.vertices[1].normal.xyz + T.vertices[2].normal.xyz)/3.0;
+		if (length(Centroid - searchCenter) <= 5.0) {
+			float edge1 = length(T.vertices[0].pos.xyz - T.vertices[1].pos.xyz);
+			float edge2 = length(T.vertices[0].pos.xyz - T.vertices[2].pos.xyz);
+			float edge3 = length(T.vertices[1].pos.xyz - T.vertices[2].pos.xyz);
+			float s = (edge1 + edge2 + edge3)/3.0;
+			float TriangleArea = sqrt(s * (s-edge1) * (s-edge2) * (s-edge3));
+			float projectedArea = TriangleArea * dot(Normal, rayDir);
+			coveredArea += projectedArea;
+		}
+	}
+
+	diffractedPower = 1.0 - (coveredArea / area);
+
 	return triangle;
 }
 
@@ -336,6 +362,57 @@ int traverseOctree(vec3 rayOrigin, vec3 rayDir, vec3 sourcePos) {
 
 }
 
+float calculateDiffractedVisibility(ivec3 cellID) {
+
+	int flatID = cellID.x + cellID.y * 8 + cellID.z * 64;
+
+	int SizeBefore = 0;
+	int Size = int(sizes[flatID]);
+
+	if (Size == 0) {
+		return 0;
+	}
+
+	for (uint i=0; i<flatID; i++) {
+		SizeBefore += int(sizes[i]);
+	}
+
+	vec3 CollisionPoint = startPos + ClosestDepth * rayDir;
+	ivec3 CollidedTriangleAmpCell = getAmpCellID(CollisionPoint + vec3(minX, minY, minZ));
+	vec3 searchCenter = vec3(CollidedTriangleAmpCell * 10.0 - vec3(minX, minY, minZ)) + vec3(5.0);
+	
+	float diffractedPower = 0;
+	int numTriangles = 1;
+
+	for (int i = SizeBefore-1; i < SizeBefore+Size; i++) {
+		Triangle T = triangles[i];
+		vec3 Centroid = (T.vertices[0].pos.xyz + T.vertices[1].pos.xyz + T.vertices[2].pos.xyz)/3.0;
+		if (length(Centroid - searchCenter) <= 10.0) {
+			numTriangles++;
+			ivec3 cell1 = getAmpCellID((T.vertices[0].pos.xyz + T.vertices[1].pos.xyz)/2.0 + vec3(minX, minY, minZ));
+			ivec3 cell2 = getAmpCellID((T.vertices[1].pos.xyz + T.vertices[2].pos.xyz)/2.0 + vec3(minX, minY, minZ));
+			ivec3 cell3 = getAmpCellID((T.vertices[2].pos.xyz + T.vertices[0].pos.xyz)/2.0 + vec3(minX, minY, minZ));
+
+			int flatID1 = cell1.x + cell1.y * xExtent + cell1.z * xExtent * yExtent;
+			int flatID2 = cell2.x + cell2.y * xExtent + cell2.z * xExtent * yExtent;
+			int flatID3 = cell3.x + cell3.y * xExtent + cell3.z * xExtent * yExtent;
+
+			diffractedPower += (ampVolume[flatID1].amp + ampVolume[flatID2].amp + ampVolume[flatID3].amp)/3.0;
+
+		}
+	}
+
+	return diffractedPower/float(numTriangles);
+
+//	if (numTriangles == 0) {
+//		return 0.0;
+//	}
+//	else {
+//		return diffractedPower/float(numTriangles);
+//	}
+//	return 0.0;
+}
+
 void main() {
 
 	vec3 sourcePos = (vec3(xExtent, yExtent, zExtent)*10.0)/2.0 - vec3(minX, minY, minZ) + vec3(5.0);
@@ -354,43 +431,51 @@ void main() {
 
 	ivec3 ampCellID = ivec3(gl_GlobalInvocationID);
 	int ampFlatID = ampCellID.x + ampCellID.y * xExtent + ampCellID.z * xExtent * yExtent;
-	//ampVolume[ampFlatID].amp = visibility;
-	visibilityVolume[ampFlatID] = visibility;
 
-	barrier();
-
-	if (visibility == 1.0) {
-		ampVolume[ampFlatID].amp = 1.0;
-		return;
+	if (visibility < 1) {
+		vec3 CollisionPoint = startPos + ClosestDepth * rayDir;
+		visibility += calculateDiffractedVisibility(getCellID(CollisionPoint + vec3(minX, minY, minZ)));
 	}
+	
+	ampVolume[ampFlatID].amp = visibility;
 
+	return;
+
+	memoryBarrier();
+	barrier();
+	
 	float power = 0;
-
-	float TransmittanceFactor = 1.0;
 
 	rayDir = normalize(sourcePos - startPos);
 
-	for (int ray = 1; ray <= 5; ray++) {
+	if (visibility != 1.0) {
+		for (int ray = 1; ray <= 5; ray++) {
 	
-		//rayDir = normalize(sourcePos - startPos);
-		rayDir = normalize(randomSpherePoint(randVec3(vec3(ray, ray + 1, ray + 2))));
+			//rayDir = normalize(sourcePos - startPos);
+			rayDir = normalize(randomSpherePoint(randVec3(vec3(ray, ray + 1, ray + 2) * vec3(gl_GlobalInvocationID.xyz))));
 
-		for (int depth = 0; depth < 5; depth++) {
-			traverseOctree(startPos, rayDir, sourcePos);
+			for (int depth = 0; depth < 2; depth++) {
+				ClosestDepth = 1000000;
+				
+				traverseOctree(startPos, rayDir, sourcePos);
 
-			vec3 CollisionPoint = startPos + ClosestDepth * rayDir;
-			ivec3 ampCollision = getAmpCellID(CollisionPoint + vec3(minX, minY, minZ));
-			int ampID = ampCollision.x + ampCollision.y * xExtent + ampCollision.z * xExtent * yExtent;
-			power += visibilityVolume[ampID] / pow(2, depth);
-			vec3 incident = normalize(CollisionPoint - startPos);
-			vec3 normal = normalize(ClosestTriangle.vertices[0].normal.xyz + ClosestTriangle.vertices[1].normal.xyz + ClosestTriangle.vertices[2].normal.xyz)/3.0;
+				vec3 CollisionPoint = startPos + ClosestDepth * rayDir;
+				ivec3 ampCollision = getAmpCellID(CollisionPoint + vec3(minX, minY, minZ));
+				int ampID = ampCollision.x + ampCollision.y * xExtent + ampCollision.z * xExtent * yExtent;
+				power += ampVolume[ampID].amp / pow(2.0, depth+1);
+				vec3 incident = normalize(CollisionPoint - startPos);
+				vec3 normal = normalize(ClosestTriangle.vertices[0].normal.xyz + ClosestTriangle.vertices[1].normal.xyz + ClosestTriangle.vertices[2].normal.xyz)/3.0;
 
-			startPos = CollisionPoint;
-			rayDir = normalize(reflect(incident, normal));
+				startPos = CollisionPoint;
+				rayDir = normalize(reflect(incident, normal));
+			}
+
 		}
-
 	}
 
-	ampVolume[ampFlatID].amp = power;
+	memoryBarrier();
+	barrier();
+
+	ampVolume[ampFlatID].amp += power;
 
 }

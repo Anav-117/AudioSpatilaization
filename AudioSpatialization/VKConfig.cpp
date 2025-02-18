@@ -876,6 +876,8 @@ void VulkanClass::createComputePipeline() {
 		throw std::runtime_error("Failed to Create Compute Pipeline\n");
 	}
 
+	std::cout << "compute pipeline created\n";
+
 }
 
 
@@ -1501,7 +1503,7 @@ void VulkanClass::loadModel() {
 	float densities[101];
 
 	for (unsigned int i = 0; i < 101; i++) {
-		densities[i] = -1.0f;
+		densities[i] = 0.0f;
 	}
 
 	/*for (unsigned int i = 0; i < ampVolumeSize; i++) {

@@ -57,36 +57,25 @@ void main() {
 
     float dist = length(pos - localCamera);
 
-    float step = dist/10.0;
+    float sampleStep = dist/10.0;
 
     float accum = 0.0;
-    float volumeAlpha = 0.0;
 
-    float i;
     int insideVol = 0;
 
-    for (i = 0; i < dist; i += step) {
-        vec3 volumeSample = localCamera + i * normalize((transform.M * vec4(pos, 1.0)).xyz - transform.cameraPos);
+    for (float i = 0; i < dist; i += sampleStep) {
+        vec3 volumeSample = localCamera + i * normalize(pos - localCamera);
         
-        vec3 modifiedSample = (volumeSample + vec3(minX, minY, minZ))/10.0;
+        ivec3 modifiedSample = ivec3((volumeSample + vec3(minX, minY, minZ))/10.0);
 
         int index = int(modifiedSample.x + modifiedSample.y*yStride + modifiedSample.z*zStride);
 
-        accum += ampIn[index].amp/10.0;
-
-        if (ampIn[index].amp > 0) {
-            insideVol = 1;
-        }
-        if (insideVol == 1 && ampIn[index].amp == 0) {
-            break;
-        }
+        accum += ampIn[index].amp / 10.0;
 
         if (accum >= 0.8) {
             accum = 0.8;
             break;
         }
-
-        //ampIn[index] = -1.0;
 
     }
 
