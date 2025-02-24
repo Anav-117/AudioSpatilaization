@@ -97,6 +97,12 @@ void main() {
     if (posAmp < 0) {
         overlay = vec4(0.0, 0.0, 1.0, 1.0);
     }
+    if (posAmp == -1) {
+        overlay = vec4(1.0, 0.0, 1.0, 1.0);
+    }
+    if (posAmp == -2) {
+        overlay = vec4(0.0, 1.0, 1.0, 1.0);
+    }
 
     outColor = vec4(vec3(diffuse), 1.0) * overlay;
 
