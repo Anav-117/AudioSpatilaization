@@ -43,7 +43,7 @@ void main() {
     vec3 lightDir = normalize(lightPos - pos);
     vec3 centerPos = normalize(pos - vec3(0.0));
 
-    float diffuse = max(0.0, dot(lightDir, normal));
+    float diffuse = max(0.5, max(0.0, dot(lightDir, normal)));
 
     float alpha = abs(dot(centerPos, normal) - 1.0);
 
@@ -94,15 +94,13 @@ void main() {
     float posAmp = (ampIn[index].amp);
 
     vec4 overlay = mix(vec4(1.0, 0.0, 0.0, 1.0), vec4(0.0, 1.0, 0.0, 1.0), posAmp);
-    if (posAmp < 0) {
+    if (posAmp < 0.0) {
         overlay = vec4(0.0, 0.0, 1.0, 1.0);
     }
-    if (posAmp == -1) {
-        overlay = vec4(1.0, 0.0, 1.0, 1.0);
-    }
-    if (posAmp == -2) {
-        overlay = vec4(0.0, 1.0, 1.0, 1.0);
-    }
+
+//    if (normalize(overlay) != normalize(vec4(0.0, 1.0, 0.0, 1.0) - vec4(1.0, 0.0, 0.0, 1.0))) {
+//        overlay = vec4(1.0, 0.0, 1.0, 1.0);
+//    }
 
     outColor = vec4(vec3(diffuse), 1.0) * overlay;
 

@@ -1503,7 +1503,7 @@ void VulkanClass::loadModel() {
 	float densities[101];
 
 	for (unsigned int i = 0; i < 101; i++) {
-		densities[i] = 0.0f;
+		densities[i] = -1.0f;
 	}
 
 	/*for (unsigned int i = 0; i < ampVolumeSize; i++) {
@@ -1932,14 +1932,12 @@ void VulkanClass::validateAmpBuffer() {
 	std::cout << min << "\n";
 
 	for (unsigned int i = 0; i < ampVolumeSize; i++) {
-		if (ampBufferVector[i].amp > 0) {
-			if (find(count.begin(), count.end(), ampBufferVector[i].amp) == count.end()) {
-				count.push_back(ampBufferVector[i].amp);
-			}
+		if (ampBufferVector[i].amp < 0 || ampBufferVector[i].amp > 1) {
+			count.push_back(ampBufferVector[i].amp);
 		}
 	}
 
-	std::cout << count.size() << "\n";
+	std::cout << "count of irregular values - " << count.size() << "\n";
 
 	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
