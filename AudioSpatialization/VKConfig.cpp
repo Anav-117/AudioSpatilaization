@@ -1109,7 +1109,7 @@ void VulkanClass::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
 	std::vector<VkDescriptorSet> descriptorSets = { ampDescriptorSet, posDescriptorSet, midpointsDescriptorSet, sizesDescriptorSet, transformDescriptorSet[0] };
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, 0);
 
-	vkCmdDispatch(commandBuffer, 186, 155, 228);
+	vkCmdDispatch(commandBuffer, 523, 105, 522);// 372, 155, 228);
 
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to Record Compute Command Buffer\n");
@@ -1495,6 +1495,8 @@ void VulkanClass::loadModel() {
 	ampVolumeSize = (x * y * z);
 
 	ampVolume = (AmpVolume*)malloc(ampVolumeSize * sizeof(AmpVolume));
+
+	std::cout << "MINIMUMS - " << extents.xMin << " | " << extents.yMin << " | " << extents.zMin << "\n";
 
 	std::cout << "AMPLITUDE VOLUME SIZE - " << (maxX - minX) / 10.0 << " X " << (maxY - minY) / 10.0 << " X " << (maxZ - minZ) / 10.0 << " = " << ampVolumeSize << "\n";
 

@@ -217,7 +217,7 @@ public:
 
 	Transform transform;
 
-	const std::string MODEL_PATH = "models/sponza.obj";
+	const std::string MODEL_PATH = "models/City.obj";
 	AmpVolume* ampVolume = nullptr;
 	size_t ampVolumeSize;
 

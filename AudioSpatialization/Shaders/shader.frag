@@ -22,9 +22,9 @@ layout(std430, set = 1, binding = 0) readonly buffer AmplitudeIn {
    AmpVolume ampIn[ ];
 };
 
-int xExtent = 372;
-int yExtent = 155;
-int zExtent = 228;
+int xExtent = 523;//372;
+int yExtent = 105;//155;
+int zExtent = 523;//228;
 
 float minX = 1920.95;
 float minY = 1429.43;
@@ -63,6 +63,9 @@ void main() {
 
     int insideVol = 0;
 
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    int numSamples = 0;
+
     for (float i = 0; i < dist; i += sampleStep) {
         vec3 volumeSample = localCamera + i * normalize(pos - localCamera);
         
@@ -71,6 +74,9 @@ void main() {
         int index = int(modifiedSample.x + modifiedSample.y*yStride + modifiedSample.z*zStride);
 
         accum += ampIn[index].amp / 10.0;
+
+        color += mix(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), ampIn[index].amp);
+        numSamples++;
 
         if (accum >= 0.8) {
             accum = 0.8;
@@ -85,7 +91,9 @@ void main() {
     
     //}
 
-    finalColor = mix(vec4(diffuse*modelColor, 1.0), vec4(1.0, 0.0, 0.0, 1.0), accum);
+
+
+    finalColor = vec4((color/numSamples), 1.0);//mix(vec4(diffuse*modelColor, 1.0), vec4(color/numSamples, 1.0), accum/2.0);
 
     vec3 modifiedSample = (pos + vec3(minX, minY, minZ))/10.0;
 
@@ -104,6 +112,6 @@ void main() {
 
     outColor = vec4(vec3(diffuse), 1.0) * overlay;
 
-    //outColor = finalColor;
+   //outColor = finalColor;
 
 }
