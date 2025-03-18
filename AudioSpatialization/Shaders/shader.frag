@@ -26,9 +26,9 @@ int xExtent = 523;//372;
 int yExtent = 105;//155;
 int zExtent = 523;//228;
 
-float minX = 1920.95;
-float minY = 1429.43;
-float minZ = 1182.81;
+float minX = 3925.2;//1920.95;
+float minY = 895.222;//1429.43;
+float minZ = 3500.24;//1182.81;
 
 layout(location = 0) out vec4 outColor;
 

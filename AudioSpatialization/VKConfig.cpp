@@ -314,7 +314,7 @@ VkPhysicalDevice VulkanClass::findPhysicalDevice() {
 			requiredExtensions.erase(extension.extensionName);
 		}
 
-		if (!findQueueFamilies(device) || !requiredExtensions.empty() || !(features.tessellationShader) || !checkSwapChainSupport(device)) { //properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU 
+		if (!findQueueFamilies(device) || !requiredExtensions.empty() || !(features.tessellationShader) || !checkSwapChainSupport(device) || properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
 			continue;
 		}
 
